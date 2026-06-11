@@ -364,7 +364,7 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         .evk-sm-handle { cursor: grab; color: #bbb; flex-shrink: 0; font-size: 16px; }
         .evk-sm-handle:hover { color: #2271b1; }
         .evk-sm-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .evk-sm-rename { width: 150px; font-size: 12px; flex-shrink: 0; }
+        .evk-sm-rename { width: 200px; font-size: 12px; flex-shrink: 0; }
         .evk-sm-eye {
             background: none; border: none; cursor: pointer; padding: 0;
             color: #bbb; font-size: 17px; flex-shrink: 0; line-height: 1;
@@ -513,36 +513,40 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 
     // Przed submitem — serializuj kolejność, ukryte i nazwy do hidden inputów
     $('#evk-wl-form').on('submit.sidebar', function(){
-        var order   = [];
-        var hidden  = [];
-        // Wyczyść stare hidden inputy sidebar_labels wygenerowane przez PHP
-        $('input[name^="evk_white_label[sidebar_labels]"]').remove();
+        var order  = [];
+        var hidden = [];
+        var $form  = $('#evk-wl-form');
+
+        // Usuń poprzednie dynamiczne inputy (użyj filter() — bezpieczny wobec [] w name)
+        $form.find('input[type=hidden]').filter(function(){
+            return this.name && this.name.indexOf('evk_white_label[sidebar_labels]') === 0;
+        }).remove();
+        $form.find('input[type=hidden]').filter(function(){
+            return this.name === 'evk_white_label[sidebar_hidden][]';
+        }).remove();
 
         $list.find('.evk-sm-row').each(function(){
             var $r    = $(this);
             var slug  = $r.data('slug');
             var isSep = $r.hasClass('is-sep');
             order.push(slug);
-            if (!isSep && ($r.data('hidden') === '1' || $r.data('hidden') === 1)) {
-                hidden.push(slug);
-            }
             if (!isSep) {
+                if ($r.data('hidden') == '1') hidden.push(slug);
                 var renamed = $r.find('.evk-sm-rename').val().trim();
                 if (renamed) {
-                    $('<input type="hidden">').attr('name','evk_white_label[sidebar_labels]['+slug+']').val(renamed).appendTo('#evk-wl-form');
+                    $('<input type="hidden">').attr('name', 'evk_white_label[sidebar_labels][' + slug + ']').val(renamed).appendTo($form);
                 }
             }
         });
 
         $('#evk-wl-menu-order-json').val(JSON.stringify(order));
 
-        // Nadpisz sentinel hidden inputy dla sidebar_hidden[]
-        $('input[name="evk_white_label[sidebar_hidden][]"]').remove();
+        // Sentinel — zapewnia klucz sidebar_hidden w POST gdy nic ukryte
         if (hidden.length === 0) {
-            $('<input type="hidden" name="evk_white_label[sidebar_hidden][]" value="">').appendTo('#evk-wl-form');
+            $('<input type="hidden" name="evk_white_label[sidebar_hidden][]" value="">').appendTo($form);
         } else {
-            hidden.forEach(function(slug){
-                $('<input type="hidden" name="evk_white_label[sidebar_hidden][]">').val(slug).appendTo('#evk-wl-form');
+            hidden.forEach(function(s){
+                $('<input type="hidden">').attr('name','evk_white_label[sidebar_hidden][]').val(s).appendTo($form);
             });
         }
     });
