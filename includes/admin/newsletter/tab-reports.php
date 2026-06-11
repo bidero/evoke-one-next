@@ -29,19 +29,35 @@ if ($campaign_id) {
 }
 
 // Timeline — zdarzenia per godzina
+// sent: z tabeli queue (spójne ze statystykami), open/click: z logów per unikalny subscriber
 $timeline_data = [];
 if ($campaign_id) {
     global $wpdb;
     $ll = evk_nl_table('logs');
-    $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT event, DATE_FORMAT(created_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $ll WHERE campaign_id=%d AND event IN ('sent','open','click','unsubscribe')
-         GROUP BY event, hour ORDER BY hour ASC", $campaign_id
-    ), ARRAY_A) ?: [];
+    $qq = evk_nl_table('queue');
 
-    foreach ($rows as $r) {
-        $timeline_data[$r['hour']][$r['event']] = (int) $r['cnt'];
+    // Wysłane per godzina — z queue (unikalne, bez duplikatów retry)
+    $sent_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT DATE_FORMAT(sent_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
+         FROM $qq WHERE campaign_id=%d AND sent_at IS NOT NULL
+         GROUP BY hour ORDER BY hour ASC", $campaign_id
+    ), ARRAY_A) ?: [];
+    foreach ($sent_rows as $r) {
+        if ($r['hour']) $timeline_data[$r['hour']]['sent'] = (int) $r['cnt'];
     }
+
+    // Otwarte/kliknięte per godzina — unikalne subscriber_id
+    $ev_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT event, DATE_FORMAT(MIN(created_at),'%%Y-%%m-%%d %%H:00') as hour, COUNT(DISTINCT subscriber_id) as cnt
+         FROM $ll WHERE campaign_id=%d AND event IN ('open','click','unsubscribe')
+         GROUP BY event, subscriber_id
+         ORDER BY hour ASC", $campaign_id
+    ), ARRAY_A) ?: [];
+    foreach ($ev_rows as $r) {
+        if ($r['hour']) $timeline_data[$r['hour']][$r['event']] = ($timeline_data[$r['hour']][$r['event']] ?? 0) + (int) $r['cnt'];
+    }
+
+    ksort($timeline_data);
 }
 ?>
 
@@ -118,21 +134,28 @@ if ($campaign_id) {
             script.onload = function() {
                 var data = <?php echo wp_json_encode($timeline_data); ?>;
                 var labels = Object.keys(data).sort();
-                var sent  = labels.map(function(h) { return (data[h].sent || 0); });
-                var open  = labels.map(function(h) { return (data[h].open || 0); });
+                var sent  = labels.map(function(h) { return (data[h].sent  || 0); });
+                var open  = labels.map(function(h) { return (data[h].open  || 0); });
                 var click = labels.map(function(h) { return (data[h].click || 0); });
 
                 new Chart(document.getElementById('evk-nl-timeline-chart'), {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [
-                            {label: 'Wysłane', data: sent,  borderColor:'#2563eb', backgroundColor:'#2563eb20', tension:.3, fill:true},
-                            {label: 'Otwarte', data: open,  borderColor:'#16a34a', backgroundColor:'#16a34a20', tension:.3, fill:true},
-                            {label: 'Kliknięte', data: click, borderColor:'#f59e0b', backgroundColor:'#f59e0b20', tension:.3, fill:true}
+                            {label: 'Wysłane',   data: sent,  backgroundColor: '#2563eb99'},
+                            {label: 'Otwarte',   data: open,  backgroundColor: '#16a34a99'},
+                            {label: 'Kliknięte', data: click, backgroundColor: '#f59e0b99'}
                         ]
                     },
-                    options: {responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            x: { stacked: false },
+                            y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
+                        }
+                    }
                 });
             };
             document.head.appendChild(script);
