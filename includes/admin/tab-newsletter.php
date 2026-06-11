@@ -48,7 +48,7 @@ $smtp_ok = evk_nl_smtp_is_configured();
         </div>
         <div class="evo-status-actions">
             <label class="evo-toggle">
-                <input type="checkbox" id="evk-nl-toggle" value="1" <?php checked($nl_active); ?>>
+                <input type="checkbox" id="evk-nl-toggle" data-option="evk_newsletter" data-field="enabled" value="1" <?php checked($nl_active); ?>>
                 <span class="evo-slider"></span>
             </label>
         </div>
@@ -87,20 +87,4 @@ $smtp_ok = evk_nl_smtp_is_configured();
 
 </div>
 
-<script>
-jQuery(function($) {
-    $('#evk-nl-toggle').on('change', function() {
-        var enabled = $(this).is(':checked') ? 1 : 0;
-        $.post(ajaxurl, {
-            action: 'evk_ajax_toggle',
-            nonce: evkToggle.nonce,
-            option: 'evk_newsletter',
-            key: 'enabled',
-            value: enabled
-        }, function(res) {
-            if (res.success) location.reload();
-        });
-    });
-});
-</script>
 <?php
