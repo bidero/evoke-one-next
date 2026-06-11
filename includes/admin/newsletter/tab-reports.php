@@ -30,36 +30,6 @@ if ($campaign_id) {
 
 
 
-// Timeline — zdarzenia per godzina dla tej kampanii
-$timeline_data = [];
-if ($campaign_id) {
-    global $wpdb;
-    $ll = evk_nl_table('logs');
-    $qq = evk_nl_table('queue');
-
-    // Wysłane: z queue.sent_at (rzeczywisty czas wysyłki)
-    $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT DATE_FORMAT(sent_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $qq WHERE campaign_id=%d AND sent_at IS NOT NULL
-         GROUP BY hour ORDER BY hour ASC", $campaign_id
-    ), ARRAY_A) ?: [];
-    foreach ($rows as $r) {
-        $timeline_data[$r['hour']]['sent'] = (int)$r['cnt'];
-    }
-
-    // Otwarte/kliknięte: z logów, COUNT(*) per godzina (nie per subscriber)
-    // GROUP BY event, hour — prosto i poprawnie
-    $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT event, DATE_FORMAT(created_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $ll WHERE campaign_id=%d AND event IN ('open','click')
-         GROUP BY event, hour ORDER BY hour ASC", $campaign_id
-    ), ARRAY_A) ?: [];
-    foreach ($rows as $r) {
-        $timeline_data[$r['hour']][$r['event']] = (int)$r['cnt'];
-    }
-
-    ksort($timeline_data);
-}
 ?>
 
 <div style="display:grid;grid-template-columns:220px 1fr;gap:20px;">
@@ -114,41 +84,6 @@ if ($campaign_id) {
             </div>
             <?php endforeach; ?>
         </div>
-
-        <!-- Timeline per godzina -->
-        <?php if (!empty($timeline_data)): ?>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:20px;">
-            <h4 style="margin:0 0 16px;font-size:13px;font-weight:600;">Aktywność w czasie</h4>
-            <canvas id="evk-nl-timeline-chart" height="80"></canvas>
-        </div>
-        <script>
-        (function() {
-            var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-            script.onload = function() {
-                var data   = <?php echo wp_json_encode($timeline_data); ?>;
-                var labels = Object.keys(data).sort();
-                new Chart(document.getElementById('evk-nl-timeline-chart'), {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {label:'Wysłane',   data: labels.map(function(h){return data[h].sent  ||0;}), backgroundColor:'#2563eb99', borderColor:'#2563eb', borderWidth:2, borderRadius:3},
-                            {label:'Otwarte',   data: labels.map(function(h){return data[h].open  ||0;}), backgroundColor:'#16a34a99', borderColor:'#16a34a', borderWidth:2, borderRadius:3},
-                            {label:'Kliknięte', data: labels.map(function(h){return data[h].click ||0;}), backgroundColor:'#f59e0b99', borderColor:'#f59e0b', borderWidth:2, borderRadius:3}
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { position: 'top' } },
-                        scales: { y: { beginAtZero: true, ticks: { stepSize:1, precision:0 } } }
-                    }
-                });
-            };
-            document.head.appendChild(script);
-        })();
-        </script>
-        <?php endif; ?>
 
         <!-- Pending info -->
         <?php if ($stats['pending'] > 0): ?>

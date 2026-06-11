@@ -67,9 +67,7 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
                 <p style="margin:0 0 10px;font-weight:600;font-size:13px;" id="evk-nl-list-form-title">Nowa lista</p>
                 <label class="evk-nl-label">Nazwa listy</label>
                 <input type="text" id="evk-nl-list-name" class="widefat" placeholder="np. Klienci 2025">
-                <p style="margin:12px 0 6px;font-weight:600;font-size:12px;color:#374151;">Pola dodatkowe</p>
-                <div id="evk-nl-fields-repeater"></div>
-                <button class="button button-small" id="evk-nl-add-field-btn" style="margin-bottom:10px;">+ Pole</button>
+
                 <div style="display:flex;gap:6px;">
                     <button class="button button-primary button-small" id="evk-nl-save-list-btn">Zapisz</button>
                     <button class="button button-small" id="evk-nl-cancel-list-btn">Anuluj</button>
@@ -105,9 +103,7 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
                     <input type="hidden" id="evk-nl-edit-id" value="">
                     <label class="evk-nl-label">Nazwa listy</label>
                     <input type="text" id="evk-nl-edit-name" class="widefat" style="margin-bottom:10px;">
-                    <p style="margin:0 0 6px;font-weight:600;font-size:12px;color:#374151;">Pola dodatkowe</p>
-                    <div id="evk-nl-edit-fields-repeater"></div>
-                    <button class="button button-small" id="evk-nl-edit-add-field-btn" style="margin-bottom:10px;">+ Pole</button>
+
                     <div style="display:flex;gap:6px;">
                         <button class="button button-primary button-small" id="evk-nl-edit-save-btn">Zapisz</button>
                         <button class="button button-small" id="evk-nl-edit-cancel-btn">Anuluj</button>
@@ -175,6 +171,7 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
             </div>
             <div id="evk-nl-sub-pagination" style="padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;"></div>
 
+        </div><!-- /evk-nl-card -->
         <?php else: ?>
         <div class="evk-nl-card">
             <div class="evk-nl-card-body" style="text-align:center;padding:48px 20px;">
@@ -210,37 +207,18 @@ jQuery(function($) {
         $('#evk-nl-edit-id').val(btn.data('id'));
         $('#evk-nl-edit-name').val(btn.data('name'));
         $('#evk-nl-edit-fields-repeater').empty();
-        (JSON.parse(btn.data('fields') || '[]')).forEach(function(f) { addEditFieldRow(f.name, f.label, f.enabled); });
         $('#evk-nl-edit-inline').slideDown();
         $('#evk-nl-edit-name').focus();
     });
 
     $('#evk-nl-edit-cancel-btn').on('click', function() { $('#evk-nl-edit-inline').slideUp(); });
 
-    $('#evk-nl-edit-add-field-btn').on('click', function(e) { e.preventDefault(); addEditFieldRow('','',true); });
 
-    function addEditFieldRow(name, label, enabled) {
-        $('#evk-nl-edit-fields-repeater').append(
-            '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">' +
-            '<input type="text" class="evk-nl-edit-field-name" placeholder="klucz" style="width:90px;font-size:12px;" value="'+$('<div>').text(name).html()+'">' +
-            '<input type="text" class="evk-nl-edit-field-label" placeholder="Etykieta" style="flex:1;font-size:12px;" value="'+$('<div>').text(label).html()+'">' +
-            '<label style="font-size:11px;white-space:nowrap;"><input type="checkbox" class="evk-nl-edit-field-enabled"'+(enabled?' checked':'')+'>wł</label>' +
-            '<button class="button button-small evk-nl-remove-edit-field" style="color:#dc2626;">✕</button>' +
-            '</div>'
-        );
-    }
-    $(document).on('click', '.evk-nl-remove-edit-field', function(e) { e.preventDefault(); $(this).closest('div').remove(); });
 
     $('#evk-nl-edit-save-btn').on('click', function() {
-        var fields = [];
-        $('#evk-nl-edit-fields-repeater > div').each(function() {
-            var n = $(this).find('.evk-nl-edit-field-name').val().trim();
-            if (n) fields.push({name:n, label:$(this).find('.evk-nl-edit-field-label').val().trim(), enabled:$(this).find('.evk-nl-edit-field-enabled').is(':checked')});
-        });
         $.post(ajaxurl, {action:'evk_nl_save_list', nonce:nonce,
             id: $('#evk-nl-edit-id').val(),
-            name: $('#evk-nl-edit-name').val(),
-            fields_config: JSON.stringify(fields)
+            name: $('#evk-nl-edit-name').val()
         }, function(res) {
             if (res.success) {
                 $('#evk-nl-edit-msg').text('Zapisano!').css('color','#16a34a');
@@ -251,27 +229,10 @@ jQuery(function($) {
         });
     });
 
-    $('#evk-nl-add-field-btn').on('click', function(e) { e.preventDefault(); addFieldRow('','',true); });
 
-    function addFieldRow(name, label, enabled) {
-        $('#evk-nl-fields-repeater').append(
-            '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">' +
-            '<input type="text" class="evk-nl-field-name" placeholder="klucz" style="width:90px;font-size:12px;" value="'+$('<div>').text(name).html()+'">' +
-            '<input type="text" class="evk-nl-field-label" placeholder="Etykieta" style="flex:1;font-size:12px;" value="'+$('<div>').text(label).html()+'">' +
-            '<label style="font-size:11px;white-space:nowrap;"><input type="checkbox" class="evk-nl-field-enabled"'+(enabled?' checked':'')+'>wł</label>' +
-            '<button class="button button-small evk-nl-remove-field" style="color:#dc2626;">✕</button>' +
-            '</div>'
-        );
-    }
-    $(document).on('click', '.evk-nl-remove-field', function(e) { e.preventDefault(); $(this).closest('div').remove(); });
 
     $('#evk-nl-save-list-btn').on('click', function() {
-        var fields = [];
-        $('#evk-nl-fields-repeater > div').each(function() {
-            var n = $(this).find('.evk-nl-field-name').val().trim();
-            if (n) fields.push({name:n, label:$(this).find('.evk-nl-field-label').val().trim(), enabled:$(this).find('.evk-nl-field-enabled').is(':checked')});
-        });
-        $.post(ajaxurl, {action:'evk_nl_save_list', nonce:nonce, id:$('#evk-nl-list-id').val(), name:$('#evk-nl-list-name').val(), fields_config:JSON.stringify(fields)}, function(res) {
+        $.post(ajaxurl, {action:'evk_nl_save_list', nonce:nonce, id:$('#evk-nl-list-id').val(), name:$('#evk-nl-list-name').val()}, function(res) {
             if (res.success) { $('#evk-nl-list-msg').text('Zapisano!').css('color','#16a34a'); setTimeout(function(){location.reload();},700); }
             else { $('#evk-nl-list-msg').text(res.data?.msg||'Błąd').css('color','#dc2626'); }
         });
