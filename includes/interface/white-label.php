@@ -153,6 +153,36 @@ add_action('admin_init', function () {
                     'evk_wl_sanitize_menu_slug',
                     $input['sidebar_menu_order']
                 )));
+            } elseif (!empty($input['sidebar_menu_order_json'])) {
+                $decoded = json_decode(wp_unslash($input['sidebar_menu_order_json']), true);
+                if (is_array($decoded)) {
+                    $sidebar_menu_order = array_values(array_filter(array_map(
+                        'evk_wl_sanitize_menu_slug',
+                        $decoded
+                    )));
+                }
+            }
+
+            // Bar items — zapisywane przez ten sam submit (JSON z hidden inputa)
+            if (!empty($input['bar_items_json'])) {
+                $raw_items = json_decode(wp_unslash($input['bar_items_json']), true);
+                if (is_array($raw_items)) {
+                    $clean_items = [];
+                    foreach ($raw_items as $item) {
+                        $title = trim((string) ($item['title'] ?? ''));
+                        if ($title === '') continue;
+                        $clean_items[] = [
+                            'id'     => sanitize_key($item['id'] ?? '') ?: 'evk-' . substr(md5(uniqid('', true)), 0, 8),
+                            'title'  => sanitize_text_field($title),
+                            'href'   => !empty($item['href']) ? esc_url_raw($item['href']) : '',
+                            'icon'   => sanitize_html_class($item['icon'] ?? ''),
+                            'parent' => sanitize_key($item['parent'] ?? ''),
+                            'target' => (($item['target'] ?? '') === '_blank') ? '_blank' : '',
+                            'type'   => (($item['type'] ?? '') === 'parent') ? 'parent' : 'item',
+                        ];
+                    }
+                    update_option('evk_wl_bar_items', wp_json_encode($clean_items));
+                }
             }
 
             $output = [

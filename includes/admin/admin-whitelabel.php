@@ -54,6 +54,9 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 <!-- Sentinele dla tablic — zapewniają klucz w POST gdy żaden checkbox niezaznaczony -->
 <input type="hidden" name="evk_white_label[bar_nodes_hidden][]" value="">
 <input type="hidden" name="evk_white_label[sidebar_hidden][]"   value="">
+<!-- Serializowane dane dynamicznych sekcji — aktualizowane przez JS przed submitem -->
+<input type="hidden" name="evk_white_label[sidebar_menu_order_json]" id="evk-wl-menu-order-json" value="">
+<input type="hidden" name="evk_white_label[bar_items_json]"          id="evk-wl-bar-items-json"  value="">
 
 <!-- STATUS -->
 <div class="evo-status-card">
@@ -234,12 +237,6 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     </p>
     <div class="evk-order-grid">
     <?php
-    // Prawa strona admin bara
-    $all_nodes = array_merge($bar_nodes, [
-        'wp-admin-bar-top-secondary' => '— prawa strona (separator) —',
-        'search'      => 'Szukaj (prawa)',
-        'my-account'  => 'Moje konto (prawa)',
-    ]);
     foreach ($bar_nodes as $node_id => $node_label):
         $order_val = isset($bar_order[$node_id]) ? (int)$bar_order[$node_id] : 0;
     ?>
@@ -280,7 +277,7 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     <p class="evo-section-title">Menu boczne — kolejność pozycji</p>
     <p class="evo-desc" style="margin-bottom:12px;">
         Przeciągaj pozycje aby zmienić kolejność. Możesz dodawać separatory.
-        <strong>Zapis przez osobny przycisk</strong> (niezależny od reszty formularza).
+        Zapis razem z całym formularzem poniżej.
     </p>
 
     <div id="evk-menu-order-wrap">
@@ -292,9 +289,7 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         </div>
         <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="button" id="evk-menu-order-add-sep">+ Dodaj separator</button>
-            <button type="button" class="button button-primary" id="evk-menu-order-save">Zapisz kolejność</button>
             <button type="button" class="button" id="evk-menu-order-reset" style="color:#b32d2e;">Resetuj do domyślnej</button>
-            <span id="evk-menu-order-status" style="font-size:13px;color:#047857;display:none;"></span>
         </div>
     </div>
 
@@ -320,7 +315,6 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 
     <script>
     (function($){
-        var nonce  = <?php echo wp_json_encode(wp_create_nonce('evoke-one-wl-bar')); ?>;
         var $list  = $('#evk-menu-order-list');
         var sepCount = 0;
 
@@ -341,31 +335,23 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         function renderList(allItems, savedOrder) {
             $list.empty();
             var rendered = [];
-
             if (savedOrder && savedOrder.length) {
-                // Wyrenderuj w zapisanej kolejności
                 savedOrder.forEach(function(slug) {
                     var found = allItems.find(function(i){ return i.slug === slug; });
                     if (found) { $list.append(buildRow(found)); rendered.push(slug); }
                     else if (slug.indexOf('separator') === 0) {
-                        // custom separator
                         $list.append(buildRow({ slug: slug, label: '— separator —', sep: true }));
                         rendered.push(slug);
                     }
                 });
-                // Dołącz resztę (nowe pozycje)
                 allItems.forEach(function(item) {
-                    if (rendered.indexOf(item.slug) === -1) {
-                        $list.append(buildRow(item));
-                    }
+                    if (rendered.indexOf(item.slug) === -1) $list.append(buildRow(item));
                 });
             } else {
                 allItems.forEach(function(item) { $list.append(buildRow(item)); });
             }
-
         }
 
-        // Sortable inicjalizowany po załadowaniu footera (SortableJS jest w wp_footer)
         function initSortable() {
             if (typeof Sortable !== 'undefined') {
                 Sortable.create($list[0], {
@@ -377,7 +363,6 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
             }
         }
 
-        // Dane menu wstrzyknięte przez PHP (global $menu dostępny w tym kontekście)
         var evkMenuData = <?php
             global $menu;
             $mo_items = [];
@@ -397,14 +382,12 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
                 'saved_order' => $wl['sidebar_menu_order'] ?? [],
             ]);
         ?>;
+
         $('#evk-menu-order-loading').remove();
         renderList(evkMenuData.items, evkMenuData.saved_order);
-        // SortableJS ładowany z in_footer=true — poczekaj na window.load lub sprawdź co 50ms
-        if (document.readyState === 'complete') {
-            initSortable();
-        } else {
-            $(window).on('load', initSortable);
-        }
+
+        if (document.readyState === 'complete') initSortable();
+        else $(window).on('load', initSortable);
 
         // Dodaj separator
         $('#evk-menu-order-add-sep').on('click', function(){
@@ -412,41 +395,24 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
             $list.append(buildRow({ slug: slug, sep: true }));
         });
 
-        // Zapisz
-        $('#evk-menu-order-save').on('click', function(){
-            var $btn = $(this), order = [];
-            $list.find('.evk-mo-row').each(function(){ order.push($(this).data('slug')); });
-            $btn.prop('disabled', true).text('Zapisuję…');
-            $.post(ajaxurl, {
-                action: 'evk_wl_save_menu_order', nonce: nonce,
-                order: JSON.stringify(order)
-            }).done(function(r){
-                var $st = $('#evk-menu-order-status');
-                $st.text(r.success ? 'Zapisano!' : 'Błąd.').show();
-                setTimeout(function(){ $st.hide(); }, 2500);
-            }).always(function(){ $btn.prop('disabled', false).text('Zapisz kolejność'); });
-        });
-
-        // Reset
+        // Reset kolejności
         $('#evk-menu-order-reset').on('click', function(){
             if (!confirm('Zresetować kolejność do domyślnej WP?')) return;
-            var $btn = $(this);
-            $btn.prop('disabled', true);
-            $.post(ajaxurl, {
-                action: 'evk_wl_save_menu_order', nonce: nonce,
-                order: JSON.stringify([])
-            }).done(function(){
-                location.reload();
-            }).always(function(){ $btn.prop('disabled', false); });
+            renderList(evkMenuData.items, []);
+            $('#evk-wl-menu-order-json').val('[]');
+        });
+
+        // Przed submitem — serializuj kolejność do hidden inputa
+        $('#evk-wl-form').on('submit', function(){
+            var order = [];
+            $list.find('.evk-mo-row').each(function(){ order.push($(this).data('slug')); });
+            $('#evk-wl-menu-order-json').val(JSON.stringify(order));
         });
 
     })(jQuery);
     </script>
 
-<div class="evo-save-bar"><?php submit_button('Zapisz White Label', 'primary', 'submit', false); ?></div>
-</form>
-
-<!-- WŁASNE MENU PASKA — poza Settings API, zapis przez AJAX -->
+<!-- WŁASNE MENU PASKA — wewnątrz tej samej formy -->
 <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--evo-border,#e0e0e0);">
     <p class="evo-section-title">Pasek górny — własne pozycje i podmenu</p>
     <p class="evo-desc" style="margin-bottom:16px;">
@@ -464,10 +430,6 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         <button type="button" class="button" id="evk-bar-add-item" style="display:inline-flex;align-items:center;gap:4px;">
             <span class="dashicons dashicons-plus" style="font-size:16px;width:16px;height:16px;line-height:1;"></span>Dodaj Element
         </button>
-        <span class="evk-bar-save-wrap">
-            <button type="button" class="button button-primary" id="evk-bar-save-btn">Zapisz pozycje paska</button>
-            <span id="evk-bar-msg" style="font-size:13px;display:none;"></span>
-        </span>
     </div>
 
     <div style="margin-top:14px;padding:10px 14px;background:#f0f6fc;border-left:3px solid #2271b1;border-radius:0 4px 4px 0;font-size:12px;color:#444;line-height:1.7;">
@@ -476,6 +438,10 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         2. "Dodaj Element" → nazwa, URL, w <em>Parent ID</em> wpisz: <code>moje-menu</code>
     </div>
 </div>
+
+<hr class="evo-divider" style="margin-top:32px;">
+<div class="evo-save-bar"><?php submit_button('Zapisz White Label', 'primary', 'submit', false); ?></div>
+</form>
 
 <style>
 .evk-color-wrap { display:flex; gap:4px; align-items:center; }
@@ -496,11 +462,8 @@ input[type=color].evk-was-reset { opacity: .45; outline: 2px dashed #b32d2e; }
 $(function() {
     var $form    = $('#evk-wl-form');
     var $resets  = $('#evk-wl-resets');
-
-    // Zbuduj listę pól do resetu z hidden inputa (może mieć wartość z poprzedniej sesji)
     var resetList = [];
 
-    // Dla każdego inputa kolorów: owiń w div, dodaj hex input + przycisk ↺
     $form.find('input[type=color][data-field]').each(function() {
         var $inp  = $(this);
         var field = $inp.data('field');
@@ -510,51 +473,34 @@ $(function() {
             $inp.wrap('<span class="evk-color-wrap"></span>');
         }
 
-        // Hex text input
         var $hex = $('<input type="text" class="evk-hex-input" maxlength="7" spellcheck="false">')
             .val($inp.val())
             .css({width:'72px', fontFamily:'monospace', fontSize:'12px', padding:'2px 4px'});
         $inp.parent().append($hex);
 
-        // Sync: color → hex
-        $inp.on('input change', function() {
-            $hex.val($inp.val());
-        });
-        // Sync: hex → color
+        $inp.on('input change', function() { $hex.val($inp.val()); });
         $hex.on('input', function() {
             var v = $hex.val().trim();
             if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-                $inp.val(v).trigger('change');
-                $hex.css('color', '');
+                $inp.val(v).trigger('change'); $hex.css('color', '');
             } else if (/^[0-9a-fA-F]{6}$/.test(v)) {
-                $inp.val('#' + v).trigger('change');
-                $hex.val('#' + v).css('color', '');
-            } else {
-                $hex.css('color', '#c0392b');
-            }
+                $inp.val('#' + v).trigger('change'); $hex.val('#' + v).css('color', '');
+            } else { $hex.css('color', '#c0392b'); }
         });
-        $hex.on('blur', function() {
-            $hex.val($inp.val()).css('color', '');
-        });
+        $hex.on('blur', function() { $hex.val($inp.val()).css('color', ''); });
 
         var $btn = $('<button type="button" class="button evk-color-reset" title="Resetuj do domyślnego WP">↺</button>');
         $btn.data('field', field);
         $inp.parent().append($btn);
 
-        // Stan początkowy
-        if (saved !== '') {
-            $btn.addClass('is-set');
-        }
+        if (saved !== '') $btn.addClass('is-set');
 
-        // Klik reset
         $btn.on('click', function() {
             if ($btn.hasClass('is-reset')) {
-                // Cofnij reset
                 resetList = resetList.filter(function(f){ return f !== field; });
                 $inp.removeClass('evk-was-reset').css('opacity', '');
                 $btn.removeClass('is-reset').toggleClass('is-set', saved !== '');
             } else {
-                // Oznacz do resetu
                 if (!resetList.includes(field)) resetList.push(field);
                 $inp.addClass('evk-was-reset');
                 $btn.removeClass('is-set').addClass('is-reset');
@@ -563,7 +509,6 @@ $(function() {
         });
     });
 
-    // Na submit — upewnij się że lista jest aktualna
     $form.on('submit', function() {
         $resets.val(JSON.stringify(resetList));
     });
@@ -618,8 +563,7 @@ function makeRow(item) {
         : '<span style="font-size:11px;color:#888;white-space:nowrap;min-width:76px;flex-shrink:0;">→ ELEMENT</span>';
 
     var idField = isParent
-        ? '<input type="text" class="evk-f-id" placeholder="ID (auto)" title="Używany jako Parent ID dla elementów podmenu" style="width:140px;flex-shrink:0;" value="'+esc(item.id||'')+'">'
-        : '';
+        ? '<input type="text" class="evk-f-id" placeholder="ID (auto)" title="Używany jako Parent ID dla elementów podmenu" style="width:140px;flex-shrink:0;" value="'+esc(item.id||'')+'">' : '';
 
     var hrefField = isParent ? '' :
         '<input type="url" class="evk-f-href" placeholder="URL" style="flex:1;" value="'+esc(item.href||'')+'">';
@@ -633,17 +577,16 @@ function makeRow(item) {
     $row.html(
         '<span class="evk-drag-handle dashicons dashicons-menu" style="font-size:18px;flex-shrink:0;" title="Przeciągnij aby zmienić kolejność"></span>'
         + badge
-        + '<input type="hidden" class="evk-f-type" value="'+(isParent?'parent':'item')+'">'
-        + '<input type="text" class="evk-f-title" placeholder="Tytuł *" style="flex:1;" value="'+esc(item.title||'')+'">'
+        + '<input type="hidden" class="evk-f-type" value="' + (isParent?'parent':'item') + '">' 
+        + '<input type="text" class="evk-f-title" placeholder="Tytuł *" style="flex:1;" value="'+esc(item.title||'')+'">' 
         + idField
         + hrefField
-        + '<input type="text" class="evk-f-icon" placeholder="dashicons-xxx" style="width:130px;flex-shrink:0;" title="np. dashicons-admin-home" value="'+esc(item.icon||'')+'">'
+        + '<input type="text" class="evk-f-icon" placeholder="dashicons-xxx" style="width:130px;flex-shrink:0;" title="np. dashicons-admin-home" value="'+esc(item.icon||'')+'">' 
         + parentField
         + targetField
         + '<button type="button" class="button evk-row-del" title="Usuń" style="flex-shrink:0;"><span class="dashicons dashicons-trash" style="font-size:16px;width:16px;height:16px;line-height:1.4;"></span></button>'
     );
 
-    // Auto ID z tytułu (parent)
     if (isParent) {
         $row.find('.evk-f-title').on('blur', function(){
             var $id = $row.find('.evk-f-id');
@@ -651,7 +594,6 @@ function makeRow(item) {
         });
     }
 
-    // Podgląd dashicony
     $row.find('.evk-f-icon').on('input', function(){
         var cls = $(this).val().trim();
         var $p  = $(this).next('.evk-icon-prev');
@@ -662,10 +604,8 @@ function makeRow(item) {
     return $row;
 }
 
-// Załaduj istniejące pozycje
 existItems.forEach(function(item){ $builder.append(makeRow(item)); });
 
-// Drag & drop — inicjalizuj po załadowaniu wszystkich skryptów (SortableJS jest w wp_footer)
 $(window).on('load', function(){
     if (typeof Sortable !== 'undefined') {
         Sortable.create(document.getElementById('evk-bar-builder'), {
@@ -674,22 +614,18 @@ $(window).on('load', function(){
             ghostClass:  'evk-drag-ghost',
             chosenClass: 'evk-drag-chosen',
         });
-    } else {
-        console.warn('Evoke ONE: SortableJS nie załadowany — drag & drop niedostępny');
     }
 });
 
-// Przyciski dodaj
 $('#evk-bar-add-parent').on('click', function(){ $builder.append(makeRow({type:'parent'})); });
 $('#evk-bar-add-item'  ).on('click', function(){ $builder.append(makeRow({type:'item'}));   });
 
-// Usuń wiersz
 $builder.on('click', '.evk-row-del', function(){
     $(this).closest('.evk-bar-row').remove();
 });
 
-// Zapisz AJAX
-$('#evk-bar-save-btn').on('click', function(){
+// Przed submitem — serializuj bar items do hidden inputa
+$('#evk-wl-form').on('submit', function(){
     var items = [];
     $builder.find('.evk-bar-row').each(function(){
         var title = $(this).find('.evk-f-title').val().trim();
@@ -708,26 +644,8 @@ $('#evk-bar-save-btn').on('click', function(){
             target: $(this).find('.evk-f-target').is(':checked') ? '_blank' : '',
         });
     });
-
-    var $btn = $(this).prop('disabled', true);
-    var $msg = $('#evk-bar-msg').hide();
-
-    $.post(ajaxurl, {
-        action: 'evk_wl_save_bar_items',
-        nonce:  '<?php echo esc_js($nonce_bar); ?>',
-        items:  JSON.stringify(items),
-    })
-    .done(function(r){
-        $msg.text(r.success ? '✓ Zapisano (' + r.data.count + ' poz.)' : '✗ ' + r.data)
-            .css('color', r.success ? '#3c9e3c' : '#c0392b').show();
-        setTimeout(function(){ $msg.fadeOut(); }, 3000);
-    })
-    .fail(function(){
-        $msg.text('✗ Błąd połączenia').css('color','#c0392b').show();
-    })
-    .always(function(){ $btn.prop('disabled', false); });
+    $('#evk-wl-bar-items-json').val(JSON.stringify(items));
 });
 
 })(jQuery);
 </script>
-
