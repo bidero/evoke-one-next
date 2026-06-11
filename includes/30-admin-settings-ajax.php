@@ -567,6 +567,7 @@ add_action('wp_ajax_evk_ajax_toggle', function () {
         'evk_schema'                => ['enabled'],
         'evk_og'                    => ['enabled'],
         'evk_white_label'           => ['enabled'],
+        'evk_newsletter'            => ['enabled'],
         'evk_security'              => ['limit_login_enabled', 'hide_wp_version', 'rest_block_all', 'disable_bundled_themes'],
         // Scalar (flat) options
         'maintenance_mode'          => ['_scalar'],

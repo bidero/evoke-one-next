@@ -11,6 +11,8 @@ define('EVK_NL_MENU_TITLE', 'Newsletter');
 
 add_action('admin_menu', function () {
     $opts     = get_option('evk_newsletter', []);
+    if (empty($opts['enabled'])) return;  // wyłączony = brak pozycji menu
+
     $location = $opts['menu_location'] ?? 'toplevel';
 
     if ($location === 'settings') {
@@ -133,10 +135,10 @@ function evk_nl_render_settings_subtab(): void {
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['evk_nl_settings_nonce'])) {
         check_admin_referer('evk_nl_settings', 'evk_nl_settings_nonce');
-        update_option('evk_newsletter', [
-            'enabled'       => !empty($_POST['nl_enabled']) ? 1 : 0,
+        $current_nl = get_option('evk_newsletter', []);
+        update_option('evk_newsletter', array_merge($current_nl, [
             'menu_location' => sanitize_key($_POST['nl_menu_location'] ?? 'toplevel'),
-        ]);
+        ]));
         echo '<div class="notice notice-success inline" style="margin-bottom:12px;"><p>Ustawienia zapisane.</p></div>';
         $opts     = get_option('evk_newsletter', []);
         $enabled  = !empty($opts['enabled']);
@@ -177,15 +179,6 @@ function evk_nl_render_settings_subtab(): void {
         <?php endif; ?>
 
         <table class="form-table">
-            <tr>
-                <th>Moduł Newsletter</th>
-                <td>
-                    <label>
-                        <input type="checkbox" name="nl_enabled" value="1" <?php checked($enabled); ?>>
-                        Włącz moduł Newsletter
-                    </label>
-                </td>
-            </tr>
             <tr>
                 <th>Lokalizacja menu</th>
                 <td>

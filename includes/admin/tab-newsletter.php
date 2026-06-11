@@ -37,18 +37,21 @@ $smtp_ok = evk_nl_smtp_is_configured();
     </div>
     <?php endif; ?>
 
-    <!-- Status card -->
-    <div class="evk-module-card" style="margin-bottom:20px;padding:16px 20px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;display:flex;align-items:center;gap:16px;">
-        <div style="flex:1;">
-            <strong style="font-size:15px;">Moduł Newsletter</strong>
-            <p style="margin:4px 0 0;color:#64748b;font-size:13px;">Zarządzanie listami subskrybentów, szablonami i kampaniami email.</p>
+    <!-- Status card — spójny z innymi modułami Evoke ONE -->
+    <div class="evo-status-card">
+        <div class="evo-status-icon <?php echo $nl_active ? 'on' : 'off'; ?>">
+            <span class="dashicons dashicons-email-alt" style="font-size:24px;width:24px;height:24px;line-height:1;"></span>
         </div>
-        <label class="evk-toggle" title="Włącz/wyłącz newsletter">
-            <input type="checkbox" id="evk-nl-toggle"
-                   data-option="evk_newsletter_enabled"
-                   <?php checked($nl_active); ?>>
-            <span class="evk-toggle-slider"></span>
-        </label>
+        <div class="evo-status-text">
+            <h3>Newsletter: <?php echo $nl_active ? 'WŁĄCZONY' : 'WYŁĄCZONY'; ?></h3>
+            <p>Listy subskrybentów, szablony i kampanie email.</p>
+        </div>
+        <div class="evo-status-actions">
+            <label class="evo-toggle">
+                <input type="checkbox" id="evk-nl-toggle" value="1" <?php checked($nl_active); ?>>
+                <span class="evo-slider"></span>
+            </label>
+        </div>
     </div>
 
     <?php if (!$nl_active): ?>
@@ -89,7 +92,7 @@ jQuery(function($) {
     $('#evk-nl-toggle').on('change', function() {
         var enabled = $(this).is(':checked') ? 1 : 0;
         $.post(ajaxurl, {
-            action: 'evk_toggle_module',
+            action: 'evk_ajax_toggle',
             nonce: evkToggle.nonce,
             option: 'evk_newsletter',
             key: 'enabled',
