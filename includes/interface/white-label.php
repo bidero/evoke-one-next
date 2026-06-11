@@ -574,45 +574,44 @@ function evk_wl_get_bricks_font_face(string $family): string {
     return '';
 }
 
+// 1. PRELOAD: Wstrzyknięty na sam początek <head> zanim przeglądarka pobierze inne style
 add_action('admin_head', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
 
-    $ff = sanitize_text_field($wl['admin_font_family']);
-
-    // Preload pliku czcionki — przeglądarka pobiera plik ZANIM sparsuje resztę <head>
-    // To jest najskuteczniejsza metoda eliminacji FOUT dla custom fonts
+    $ff           = sanitize_text_field($wl['admin_font_family']);
     $bricks_fonts = get_option('bricks_custom_fonts', []);
-    if (is_array($bricks_fonts)) {
-        foreach ($bricks_fonts as $font) {
-            if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
-            foreach ((array)($font['files'] ?? []) as $f) {
-                $url    = esc_url($f['file'] ?? '');
-                $format = sanitize_text_field($f['format'] ?? 'woff2');
-                if (!$url) continue;
-                // Preload tylko woff2 — najwyższy priorytet w nowoczesnych przeglądarkach
-                if ($format === 'woff2') {
-                    echo '<link rel="preload" href="' . esc_url($url) . '" as="font" type="font/woff2" crossorigin="anonymous">' . "\n";
-                }
-                break 2; // wystarczy jeden plik
+    if (!is_array($bricks_fonts)) return;
+
+    foreach ($bricks_fonts as $font) {
+        if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
+        foreach ((array)($font['files'] ?? []) as $f) {
+            $url    = esc_url($f['file'] ?? '');
+            $format = sanitize_text_field($f['format'] ?? 'woff2');
+            if (!$url) continue;
+            if ($format === 'woff2') {
+                echo '<link rel="preload" href="' . esc_url($url) . '" as="font" type="font/woff2" crossorigin="anonymous">' . "\n";
+                return; // Znaleźliśmy woff2, kończymy całą funkcję
             }
         }
     }
-}, -11);
+}, -9999);
 
+// 2. DEFINICJA @FONT-FACE I STYLE: Zaraz po preloadzie
 add_action('admin_head', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
 
-    $ff         = sanitize_text_field($wl['admin_font_family']);
-    $font_face  = evk_wl_get_bricks_font_face($ff);
-    $ff_esc     = esc_attr($ff);
+    $ff        = sanitize_text_field($wl['admin_font_family']);
+    $font_face = evk_wl_get_bricks_font_face($ff);
+    $ff_esc    = esc_attr($ff);
 
     echo '<style id="evk-wl-font">';
     if ($font_face) echo $font_face;
     echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
-}, -10);
+}, -9998);
+
 
 // -------------------------------------------------------------------------
 // Podmiana nazwy "WordPress" → site_name (bez gettext — przez CSS + title)
