@@ -209,7 +209,7 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         <div class="evo-field" style="margin:0;">
             <label style="font-size:12px;">Badge (kółko licznika)</label>
             <input type="color" data-field="color_menu_badge" data-saved="<?php echo esc_attr($wl['color_menu_badge'] ?? ''); ?>" name="evk_white_label[color_menu_badge]"
-                   value="<?php echo esc_attr($wl['color_menu_badge'] ?: ($wl['color_primary'] ?: '#2271b1')); ?>">
+                   value="<?php echo esc_attr($wl['color_menu_badge'] ?: '#2271b1'); ?>">
         </div>
         <div class="evo-field" style="margin:0;">
             <label style="font-size:12px;">Tekst badge</label>
@@ -649,7 +649,24 @@ $(function() {
         });
     });
 
+    // Dirty tracking — śledź które kolory użytkownik faktycznie zmienił
+    var dirtyColors = {};
+    $form.find('input[type=color][data-field]').on('input change', function(){
+        dirtyColors[$(this).data('field')] = true;
+    });
+
     $form.on('submit', function() {
+        $resets.val(JSON.stringify(resetList));
+        // Kolory z data-saved='' które nie były zmienione przez użytkownika
+        // mają value z fallbacku PHP — nie utrwalaj ich, dodaj do _resets
+        $form.find('input[type=color][data-field]').each(function(){
+            var $inp  = $(this);
+            var field = $inp.data('field');
+            if ($inp.data('saved') === '' && !dirtyColors[field] && resetList.indexOf(field) === -1) {
+                // Nie wysyłaj fallbacku — dodaj do resetsów żeby sanitize użył ''
+                resetList.push(field);
+            }
+        });
         $resets.val(JSON.stringify(resetList));
     });
 });

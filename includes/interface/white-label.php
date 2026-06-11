@@ -133,7 +133,13 @@ add_action('admin_init', function () {
 
             $color = function (string $key, string $fallback = '') use ($input, $resets, $current): string {
                 if (in_array($key, $resets, true)) return '';
-                if (array_key_exists($key, $input)) return sanitize_hex_color($input[$key]) ?: $fallback;
+                if (array_key_exists($key, $input)) {
+                    $sanitized = sanitize_hex_color($input[$key]);
+                    // Jeśli sanitize zwróciło '' (np. niepoprawny format) — zostaw poprzednią wartość
+                    // zamiast zerować kolor. Fallback tylko gdy nie ma też poprzedniej wartości.
+                    if ($sanitized !== '') return $sanitized;
+                    return $current[$key] ?: $fallback;
+                }
                 return $current[$key] ?? $fallback;
             };
 
