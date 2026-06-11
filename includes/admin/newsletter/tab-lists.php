@@ -86,12 +86,6 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
             <div class="evk-nl-card-head" style="flex-wrap:wrap;gap:8px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <strong style="font-size:14px;"><?php echo esc_html($current_list['name']); ?></strong>
-                    <label class="evo-toggle" title="Aktywna/nieaktywna">
-                        <input type="checkbox" class="evk-nl-list-toggle"
-                               data-id="<?php echo (int) $current_list['id']; ?>"
-                               <?php checked((int) $current_list['status'], 1); ?>>
-                        <span class="evo-slider"></span>
-                    </label>
                 </div>
                 <div style="display:flex;gap:6px;">
                     <button class="button button-small evk-nl-edit-list-btn"

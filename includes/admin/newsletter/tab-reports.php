@@ -36,10 +36,11 @@ if ($campaign_id) {
     $ll = evk_nl_table('logs');
     $qq = evk_nl_table('queue');
 
-    // Wysłane per godzina — z queue (unikalne, bez duplikatów retry)
+    // Wysłane per godzina — z queue, status sent/opened/clicked (spójne ze statystykami)
+    // Fallback: jeśli sent_at NULL użyj updated_at lub created_at
     $sent_rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT DATE_FORMAT(sent_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $qq WHERE campaign_id=%d AND sent_at IS NOT NULL
+        "SELECT DATE_FORMAT(COALESCE(sent_at, updated_at, created_at),'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
+         FROM $qq WHERE campaign_id=%d AND status IN ('sent','opened','clicked')
          GROUP BY hour ORDER BY hour ASC", $campaign_id
     ), ARRAY_A) ?: [];
     foreach ($sent_rows as $r) {

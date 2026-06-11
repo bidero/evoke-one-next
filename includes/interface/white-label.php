@@ -578,12 +578,37 @@ add_action('admin_head', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
 
+    $ff = sanitize_text_field($wl['admin_font_family']);
+
+    // Preload pliku czcionki — przeglądarka pobiera plik ZANIM sparsuje resztę <head>
+    // To jest najskuteczniejsza metoda eliminacji FOUT dla custom fonts
+    $bricks_fonts = get_option('bricks_custom_fonts', []);
+    if (is_array($bricks_fonts)) {
+        foreach ($bricks_fonts as $font) {
+            if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
+            foreach ((array)($font['files'] ?? []) as $f) {
+                $url    = esc_url($f['file'] ?? '');
+                $format = sanitize_text_field($f['format'] ?? 'woff2');
+                if (!$url) continue;
+                // Preload tylko woff2 — najwyższy priorytet w nowoczesnych przeglądarkach
+                if ($format === 'woff2') {
+                    echo "<link rel="preload" href="{$url}" as="font" type="font/woff2" crossorigin="anonymous">
+";
+                }
+                break 2; // wystarczy jeden plik
+            }
+        }
+    }
+}, -11);
+
+add_action('admin_head', function () {
+    $wl = evk_wl_get();
+    if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
+
     $ff         = sanitize_text_field($wl['admin_font_family']);
     $font_face  = evk_wl_get_bricks_font_face($ff);
     $ff_esc     = esc_attr($ff);
 
-    // Wyemituj @font-face (jeśli znaleziono w Bricks) + body {font-family} jak najwcześniej
-    // font-display:block — przeglądarka czeka na czcionkę zamiast pokazywać fallback
     echo '<style id="evk-wl-font">';
     if ($font_face) echo $font_face;
     echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
