@@ -532,6 +532,59 @@ add_filter('update_footer', function ($text) {
 }, 11);
 
 // -------------------------------------------------------------------------
+// Czcionka admina — @font-face wstrzykiwany jako PIERWSZA rzecz w <head>
+// Priorytet -10 → przed wszystkimi innymi admin_head hookami → brak FOUT
+// -------------------------------------------------------------------------
+
+function evk_wl_get_bricks_font_face(string $family): string {
+    // Bricks przechowuje custom fonts w opcji bricks_custom_fonts (tablica)
+    // Każdy wpis: ['name' => 'NazwaRodziny', 'files' => [['format'=>'woff2','file'=>URL], ...]]
+    $bricks_fonts = get_option('bricks_custom_fonts', []);
+    if (!is_array($bricks_fonts)) return '';
+
+    $family_lower = strtolower(trim($family));
+    foreach ($bricks_fonts as $font) {
+        $fname = strtolower(trim($font['name'] ?? ''));
+        if ($fname !== $family_lower) continue;
+
+        $files = $font['files'] ?? [];
+        if (empty($files)) continue;
+
+        // Zbuduj src dla @font-face
+        $srcs = [];
+        foreach ($files as $f) {
+            $url    = esc_url($f['file'] ?? '');
+            $format = sanitize_text_field($f['format'] ?? 'woff2');
+            if ($url) $srcs[] = "url('{$url}') format('{$format}')";
+        }
+        if (empty($srcs)) continue;
+
+        $src_str = implode(',', $srcs);
+        $weight  = sanitize_text_field($font['weight'] ?? 'normal');
+        $style   = sanitize_text_field($font['style']  ?? 'normal');
+
+        return "@font-face{font-family:'{$family}';src:{$src_str};font-weight:{$weight};font-style:{$style};font-display:block;}";
+    }
+    return '';
+}
+
+add_action('admin_head', function () {
+    $wl = evk_wl_get();
+    if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
+
+    $ff         = sanitize_text_field($wl['admin_font_family']);
+    $font_face  = evk_wl_get_bricks_font_face($ff);
+    $ff_esc     = esc_attr($ff);
+
+    // Wyemituj @font-face (jeśli znaleziono w Bricks) + body {font-family} jak najwcześniej
+    // font-display:block — przeglądarka czeka na czcionkę zamiast pokazywać fallback
+    echo '<style id="evk-wl-font">';
+    if ($font_face) echo $font_face;
+    echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
+    echo '</style>';
+}, -10);
+
+// -------------------------------------------------------------------------
 // Podmiana nazwy "WordPress" → site_name (bez gettext — przez CSS + title)
 // -------------------------------------------------------------------------
 add_action('admin_head', function () {
@@ -651,11 +704,6 @@ add_action('admin_head', function () {
     if (!empty($wl['color_notice_bg'])) {
         $nb   = esc_attr($wl['color_notice_bg']);
         $css .= ".notice,.notice-success,.notice-error,.notice-warning,.notice-info{background:{$nb}!important;border-color:rgba(0,0,0,.1)!important;}";
-    }
-
-    if (!empty($wl['admin_font_family'])) {
-        $ff  = esc_attr($wl['admin_font_family']);
-        $css .= "#wpcontent,#adminmenu,#wpadminbar,body.wp-admin{font-family:{$ff},sans-serif!important;}";
     }
 
     if (!empty($wl['color_admin_bar_link'])) {
