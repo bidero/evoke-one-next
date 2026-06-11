@@ -574,8 +574,10 @@ function evk_wl_get_bricks_font_face(string $family): string {
     return '';
 }
 
-// 1. PRELOAD: Wstrzyknięty na sam początek <head> zanim przeglądarka pobierze inne style
-add_action('admin_head', function () {
+// Czcionka admina — preload + @font-face + font-family
+// Preload rejestrowany przez wp_enqueue_style z atrybutem rel=preload —
+// WP umieszcza go w <head> przed innymi stylami przez kolejność enqueue
+add_action('admin_enqueue_scripts', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
 
@@ -585,19 +587,26 @@ add_action('admin_head', function () {
 
     foreach ($bricks_fonts as $font) {
         if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
-        foreach ((array)($font['files'] ?? []) as $f) {
-            $url    = esc_url($f['file'] ?? '');
-            $format = sanitize_text_field($f['format'] ?? 'woff2');
-            if (!$url) continue;
-            if ($format === 'woff2') {
-                echo '<link rel="preload" href="' . esc_url($url) . '" as="font" type="font/woff2" crossorigin="anonymous">' . "\n";
-                return; // Znaleźliśmy woff2, kończymy całą funkcję
-            }
+        foreach ((array)($font['files'] ?? []) as $file) {
+            $url    = $file['file'] ?? '';
+            $format = sanitize_text_field($file['format'] ?? 'woff2');
+            if (!$url || $format !== 'woff2') continue;
+
+            // Zarejestruj preload jako osobny "styl" z atrybutem rel=preload
+            // To jest standardowy WP sposób na preload zasobów
+            wp_enqueue_style('evk-wl-font-preload', esc_url($url), [], null);
+            add_filter('style_loader_tag', function ($tag, $handle) use ($url) {
+                if ($handle !== 'evk-wl-font-preload') return $tag;
+                // Zamień <link rel="stylesheet"> na <link rel="preload">
+                return '<link rel="preload" href="' . esc_url($url) . '" as="font" type="font/woff2" crossorigin="anonymous">' . "
+";
+            }, 10, 2);
+            break 2;
         }
     }
-}, -9999);
+});
 
-// 2. DEFINICJA @FONT-FACE I STYLE: Zaraz po preloadzie
+// @font-face + font-family — przez admin_head priorytet 1 (bardzo wcześnie)
 add_action('admin_head', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
@@ -610,7 +619,7 @@ add_action('admin_head', function () {
     if ($font_face) echo $font_face;
     echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
-}, -9998);
+}, 1);
 
 
 // -------------------------------------------------------------------------

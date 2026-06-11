@@ -28,61 +28,7 @@ if ($campaign_id) {
     ), ARRAY_A) ?: [];
 }
 
-// Timeline — zdarzenia per godzina
-// sent: z tabeli queue (spójne ze statystykami), open/click: z logów per unikalny subscriber
-$timeline_data = [];
-if ($campaign_id) {
-    global $wpdb;
-    $ll = evk_nl_table('logs');
-    $qq = evk_nl_table('queue');
 
-    // Wysłane per godzina — priorytety:
-    // 1. queue.sent_at (jeśli wypełniony)
-    // 2. logs event='sent' created_at (fallback gdy sent_at=NULL)
-    $sent_rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT DATE_FORMAT(sent_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $qq WHERE campaign_id=%d AND sent_at IS NOT NULL
-         AND status IN ('sent','opened','clicked')
-         GROUP BY hour ORDER BY hour ASC", $campaign_id
-    ), ARRAY_A) ?: [];
-    foreach ($sent_rows as $r) {
-        if ($r['hour']) $timeline_data[$r['hour']]['sent'] = (int) $r['cnt'];
-    }
-    // Fallback: jeśli żadne sent_at nie jest wypełnione — użyj logs event='sent'
-    if (empty(array_filter(array_column($timeline_data, 'sent')))) {
-        $sent_log_rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT DATE_FORMAT(created_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(DISTINCT subscriber_id) as cnt
-             FROM $ll WHERE campaign_id=%d AND event='sent'
-             GROUP BY hour ORDER BY hour ASC", $campaign_id
-        ), ARRAY_A) ?: [];
-        foreach ($sent_log_rows as $r) {
-            if ($r['hour']) $timeline_data[$r['hour']]['sent'] = (int) $r['cnt'];
-        }
-    }
-    // Jeśli nadal brak (brak logów 'sent') — wstaw całość jako jeden punkt przy pierwszym dostępnym zdarzeniu
-    if (empty(array_filter(array_column($timeline_data, 'sent')))) {
-        $total_sent = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $qq WHERE campaign_id=%d AND status IN ('sent','opened','clicked')", $campaign_id
-        ));
-        if ($total_sent > 0 && !empty($timeline_data)) {
-            $first_hour = array_key_first($timeline_data);
-            $timeline_data[$first_hour]['sent'] = $total_sent;
-        }
-    }
-
-    // Otwarte/kliknięte per godzina — unikalne subscriber_id
-    $ev_rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT event, DATE_FORMAT(MIN(created_at),'%%Y-%%m-%%d %%H:00') as hour, COUNT(DISTINCT subscriber_id) as cnt
-         FROM $ll WHERE campaign_id=%d AND event IN ('open','click','unsubscribe')
-         GROUP BY event, subscriber_id
-         ORDER BY hour ASC", $campaign_id
-    ), ARRAY_A) ?: [];
-    foreach ($ev_rows as $r) {
-        if ($r['hour']) $timeline_data[$r['hour']][$r['event']] = ($timeline_data[$r['hour']][$r['event']] ?? 0) + (int) $r['cnt'];
-    }
-
-    ksort($timeline_data);
-}
 ?>
 
 <div style="display:grid;grid-template-columns:220px 1fr;gap:20px;">
@@ -145,38 +91,50 @@ if ($campaign_id) {
         </div>
         <?php endif; ?>
 
-        <!-- Chart.js timeline -->
-        <?php if (!empty($timeline_data)): ?>
+        <!-- Wykres statystyk kampanii — te same wartości co karty -->
+        <?php if ($stats): ?>
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:20px;">
-            <h4 style="margin:0 0 16px;font-size:13px;font-weight:600;">Aktywność kampanii</h4>
-            <canvas id="evk-nl-timeline-chart" height="80"></canvas>
+            <h4 style="margin:0 0 16px;font-size:13px;font-weight:600;">Podsumowanie kampanii</h4>
+            <canvas id="evk-nl-stats-chart" height="80"></canvas>
         </div>
         <script>
         (function() {
             var script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
             script.onload = function() {
-                var data = <?php echo wp_json_encode($timeline_data); ?>;
-                var labels = Object.keys(data).sort();
-                var sent  = labels.map(function(h) { return (data[h].sent  || 0); });
-                var open  = labels.map(function(h) { return (data[h].open  || 0); });
-                var click = labels.map(function(h) { return (data[h].click || 0); });
-
-                new Chart(document.getElementById('evk-nl-timeline-chart'), {
+                new Chart(document.getElementById('evk-nl-stats-chart'), {
                     type: 'bar',
                     data: {
-                        labels: labels,
-                        datasets: [
-                            {label: 'Wysłane',   data: sent,  backgroundColor: '#2563eb99'},
-                            {label: 'Otwarte',   data: open,  backgroundColor: '#16a34a99'},
-                            {label: 'Kliknięte', data: click, backgroundColor: '#f59e0b99'}
-                        ]
+                        labels: ['Wysłane', 'Otwarte', 'Kliknięte', 'Błędy', 'Wypisy'],
+                        datasets: [{
+                            data: [
+                                <?php echo (int)$stats['sent']; ?>,
+                                <?php echo (int)$stats['opened']; ?>,
+                                <?php echo (int)$stats['clicked']; ?>,
+                                <?php echo (int)$stats['failed']; ?>,
+                                <?php echo (int)$stats['unsubs']; ?>
+                            ],
+                            backgroundColor: ['#2563eb99','#16a34a99','#f59e0b99','#dc262699','#f9731699'],
+                            borderColor:     ['#2563eb',  '#16a34a',  '#f59e0b',  '#dc2626',  '#f97316'],
+                            borderWidth: 2,
+                            borderRadius: 4,
+                        }]
                     },
                     options: {
                         responsive: true,
-                        plugins: { legend: { position: 'top' } },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        var total = <?php echo (int)$stats['total']; ?>;
+                                        var pct = total > 0 ? Math.round(ctx.raw / total * 100) : 0;
+                                        return ctx.raw + ' (' + pct + '%)';
+                                    }
+                                }
+                            }
+                        },
                         scales: {
-                            x: { stacked: false },
                             y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
                         }
                     }
