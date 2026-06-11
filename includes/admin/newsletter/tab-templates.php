@@ -9,12 +9,15 @@ $edit_tpl  = $edit_id ? evk_nl_get_template($edit_id) : null;
 wp_enqueue_editor();
 
 $merge_tags = [
-    '{email}'           => 'Email odbiorcy',
-    '{unsubscribe_url}' => 'URL wypisania (wstaw jako href)',
-    '{view_in_browser}' => 'Link „Zobacz w przeglądarce"',
-    '{view_url}'        => 'URL podglądu (wstaw jako href)',
-    '{site_name}'       => 'Nazwa strony',
-    '{site_url}'        => 'URL strony (wstaw jako href)',
+    '{email}'                => 'Email odbiorcy',
+    '{unsubscribe_url}'      => 'URL wypisania — z https:// (wstaw jako href)',
+    '{unsubscribe_url_plain}' => 'URL wypisania — bez protokołu (gdy WP dokłada https://)',
+    '{view_in_browser}'      => 'Link „Zobacz w przeglądarce"',
+    '{view_url}'             => 'URL podglądu — z https://',
+    '{view_url_plain}'       => 'URL podglądu — bez protokołu',
+    '{site_name}'            => 'Nazwa strony',
+    '{site_url}'             => 'URL strony — bez protokołu (bezpieczny w href)',
+    '{site_url_full}'        => 'URL strony — z https://',
 ];
 $attachments     = json_decode($edit_tpl['attachments_json'] ?? '[]', true) ?: [];
 ?>

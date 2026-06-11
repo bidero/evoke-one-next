@@ -297,7 +297,9 @@ function evk_nl_handle_view(int $campaign_id, string $token = ''): void {
         '{email}'            => $subscriber ? $subscriber['email'] : 'twoj@email.com',
         '{unsubscribe_url}'  => $unsub_url,
         '{site_name}'        => get_bloginfo('name'),
-        '{site_url}'         => home_url(),
+        '{site_url}'         => preg_replace('#^https?://#', '', home_url()),
+        '{site_url_full}'     => home_url(),
+        '{unsubscribe_url_plain}' => preg_replace('#^https?://#', '', $unsub_url),
         '{view_in_browser}'  => '', // Wyczyść w podglądzie
     ], evk_nl_fields_to_merge_tags($fields));
 

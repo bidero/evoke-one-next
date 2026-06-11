@@ -22,8 +22,11 @@ function evk_nl_send_mail(array $subscriber, array $campaign, array $template, a
         '{unsubscribe_url}'  => $unsub_url,
         '{site_name}'        => get_bloginfo('name'),
         '{site_url}'         => preg_replace('#^https?://#', '', home_url()),
+        '{site_url_full}'     => home_url(),
+        '{unsubscribe_url_plain}' => preg_replace('#^https?://#', '', $unsub_url),
         '{view_in_browser}'  => '<a href="' . esc_url($view_url) . '" style="color:#64748b;font-size:12px;">Zobacz w przeglądarce</a>',
         '{view_url}'         => $view_url,
+        '{view_url_plain}'   => preg_replace('#^https?://#', '', $view_url),
     ], evk_nl_fields_to_merge_tags($fields));
 
     $subject = evk_nl_replace_merge_tags($template['subject'], $merge);
