@@ -337,173 +337,217 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     </p>
 </div>
 
-<!-- MENU BOCZNE — widoczność -->
+<!-- MENU BOCZNE — połączona sekcja: kolejność + ukrywanie + nazwy -->
 <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--evo-border,#e0e0e0);">
-    <p class="evo-section-title">Menu boczne — ukryj pozycje</p>
-    <p class="evo-desc" style="margin-bottom:12px;">Ukryte dla użytkowników <strong>innych niż administrator</strong>.</p>
-    <div style="display:grid;grid-template-columns:1fr;gap:4px;max-width:640px;">
-    <?php foreach ($sidebar_items as $slug => $label):
-        $checked      = in_array($slug, (array)($wl['sidebar_hidden'] ?? []), true);
-        $saved_label  = $sidebar_labels_saved[$slug] ?? '';
-    ?>
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--evo-surface,#f8f8f8);border-radius:4px;border:1px solid <?php echo $checked ? '#2271b1' : 'transparent'; ?>">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0;flex:1;">
-            <input type="checkbox" name="evk_white_label[sidebar_hidden][]" value="<?php echo esc_attr($slug); ?>" <?php checked($checked); ?>>
-            <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></span>
-        </label>
-        <input type="text"
-               name="evk_white_label[sidebar_labels][<?php echo esc_attr($slug); ?>]"
-               value="<?php echo esc_attr($saved_label); ?>"
-               placeholder="Własna nazwa…"
-               style="width:180px;font-size:12px;flex-shrink:0;"
-               title="Zostaw puste = oryginalna nazwa">
+    <p class="evo-section-title">Menu boczne</p>
+    <p class="evo-desc" style="margin-bottom:14px;">
+        Przeciągaj aby zmienić kolejność. <strong>Oko</strong> ukrywa pozycję dla nie-administratorów.
+        Pole nazwy zastępuje oryginalny tytuł. Administratorzy zawsze widzą wszystko.
+    </p>
+
+    <style>
+        .evk-sm-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px; margin-bottom: 5px; max-width: 600px;
+            background: var(--evo-surface, #f8f8f8);
+            border: 1px solid var(--evo-border, #e0e0e0);
+            border-radius: 6px; font-size: 13px;
+            transition: border-color .15s, background .15s;
+        }
+        .evk-sm-row.is-hidden {
+            opacity: .5; background: #fafafa;
+        }
+        .evk-sm-row.is-sep {
+            background: #f0f4ff; border-style: dashed;
+            color: #6b7280; font-style: italic; opacity: 1;
+        }
+        .evk-sm-handle { cursor: grab; color: #bbb; flex-shrink: 0; font-size: 16px; }
+        .evk-sm-handle:hover { color: #2271b1; }
+        .evk-sm-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .evk-sm-rename { width: 150px; font-size: 12px; flex-shrink: 0; }
+        .evk-sm-eye {
+            background: none; border: none; cursor: pointer; padding: 0;
+            color: #bbb; font-size: 17px; flex-shrink: 0; line-height: 1;
+            transition: color .15s;
+        }
+        .evk-sm-eye.is-hidden { color: #e0e0e0; }
+        .evk-sm-eye:not(.is-hidden) { color: #2271b1; }
+        .evk-sm-remove { background: none; border: none; color: #ef4444; cursor: pointer; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
+        .evk-sm-remove:hover { color: #b91c1c; }
+        @keyframes evk-rotation { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+
+    <div id="evk-sm-list">
+        <div id="evk-sm-loading" style="color:#666;font-size:13px;padding:12px 0;">
+            <span class="dashicons dashicons-update" style="animation:evk-rotation 1s linear infinite;display:inline-block;"></span>
+            Ładuję pozycje menu…
+        </div>
     </div>
-    <?php endforeach; ?>
+
+    <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="button" id="evk-sm-add-sep">+ Dodaj separator</button>
+        <button type="button" class="button" id="evk-sm-reset" style="color:#b32d2e;">Resetuj kolejność</button>
     </div>
-    <p style="font-size:12px;color:#666;margin-top:8px;">
-        <span class="dashicons dashicons-info-outline" style="font-size:14px;vertical-align:middle;"></span>
-        Administratorzy zawsze widzą wszystkie pozycje.
+    <p style="font-size:12px;color:#999;margin-top:8px;">
+        <span class="dashicons dashicons-info-outline" style="font-size:13px;vertical-align:middle;"></span>
+        Ikona oka = widoczność dla nie-adminów &nbsp;·&nbsp; Pole tekstowe = własna nazwa pozycji
     </p>
 </div>
 
-    <hr class="evo-divider" style="margin-top:24px;">
-    <p class="evo-section-title">Menu boczne — kolejność pozycji</p>
-    <p class="evo-desc" style="margin-bottom:12px;">
-        Przeciągaj pozycje aby zmienić kolejność. Możesz dodawać separatory.
-        Zapis razem z całym formularzem poniżej.
-    </p>
+<script>
+(function($){
+    var $list    = $('#evk-sm-list');
+    var sepCount = 0;
 
-    <div id="evk-menu-order-wrap">
-        <div id="evk-menu-order-list" style="max-width:480px;">
-            <div style="color:#666;font-size:13px;padding:12px 0;" id="evk-menu-order-loading">
-                <span class="dashicons dashicons-update" style="animation:rotation 1s linear infinite;display:inline-block;"></span>
-                Ładuję pozycje menu…
-            </div>
-        </div>
-        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <button type="button" class="button" id="evk-menu-order-add-sep">+ Dodaj separator</button>
-            <button type="button" class="button" id="evk-menu-order-reset" style="color:#b32d2e;">Resetuj do domyślnej</button>
-        </div>
-    </div>
-
-    <style>
-        .evk-mo-row {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8px 12px; margin-bottom: 6px;
-            background: var(--evo-surface, #f8f8f8);
-            border: 1px solid var(--evo-border, #e0e0e0);
-            border-radius: 6px; font-size: 13px; cursor: default;
+    var evkSMData = <?php
+        global $menu;
+        $sm_items = [];
+        foreach ((array) $menu as $pos => $item) {
+            $slug   = $item[2] ?? '';
+            $raw    = preg_replace('/<span[^>]*>.*<\/span>/Us', '', $item[0] ?? '');
+            $label  = trim(strip_tags($raw));
+            $is_sep = (strpos($slug, 'separator') === 0 || ($item[4] ?? '') === 'wp-menu-separator');
+            $sm_items[] = [
+                'slug'    => $slug ?: 'separator-' . $pos,
+                'label'   => $is_sep ? '' : ($label ?: $slug),
+                'sep'     => $is_sep,
+                'hidden'  => in_array($slug, (array)($wl['sidebar_hidden'] ?? []), true),
+                'renamed' => $sidebar_labels_saved[$slug] ?? '',
+            ];
         }
-        .evk-mo-row.is-sep {
-            background: #f0f4ff; border-style: dashed;
-            color: #6b7280; font-style: italic;
+        echo wp_json_encode([
+            'items'       => $sm_items,
+            'saved_order' => $wl['sidebar_menu_order'] ?? [],
+        ]);
+    ?>;
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function buildRow(item) {
+        var isSep   = item.sep || String(item.slug).indexOf('separator') === 0;
+        var label   = isSep ? '— separator —' : (item.label || item.slug);
+        var hidden  = item.hidden || false;
+        var renamed = item.renamed || '';
+
+        var $row = $('<div class="evk-sm-row' + (isSep ? ' is-sep' : '') + (hidden ? ' is-hidden' : '') + '" data-slug="' + esc(item.slug) + '" data-hidden="' + (hidden ? '1' : '0') + '"></div>');
+
+        // Uchwyt drag
+        $row.append('<span class="evk-sm-handle dashicons dashicons-menu" title="Przeciągnij"></span>');
+
+        // Etykieta
+        $row.append('<span class="evk-sm-label" title="' + esc(item.slug) + '">' + esc(label) + '</span>');
+
+        if (!isSep) {
+            // Pole nazwy
+            $row.append('<input type="text" class="evk-sm-rename small-text" placeholder="Własna nazwa…" value="' + esc(renamed) + '" title="Własna nazwa (puste = oryginalna)">');
+
+            // Przycisk oka
+            var $eye = $('<button type="button" class="evk-sm-eye' + (hidden ? ' is-hidden' : '') + '" title="' + (hidden ? 'Ukryta (kliknij aby pokazać)' : 'Widoczna (kliknij aby ukryć)') + '"><span class="dashicons ' + (hidden ? 'dashicons-hidden' : 'dashicons-visibility') + '"></span></button>');
+            $eye.on('click', function(){
+                var nowHidden = $row.data('hidden') === '1' || $row.data('hidden') === 1;
+                nowHidden = !nowHidden;
+                $row.data('hidden', nowHidden ? '1' : '0');
+                $row.toggleClass('is-hidden', nowHidden);
+                $eye.toggleClass('is-hidden', nowHidden);
+                $eye.find('.dashicons').attr('class', 'dashicons ' + (nowHidden ? 'dashicons-hidden' : 'dashicons-visibility'));
+                $eye.attr('title', nowHidden ? 'Ukryta (kliknij aby pokazać)' : 'Widoczna (kliknij aby ukryć)');
+            });
+            $row.append($eye);
+        } else {
+            // Separator — przycisk usuń
+            var $rm = $('<button type="button" class="evk-sm-remove" title="Usuń separator">×</button>');
+            $rm.on('click', function(){ $row.remove(); });
+            $row.append($rm);
         }
-        .evk-mo-handle { cursor: grab; color: #bbb; flex-shrink: 0; }
-        .evk-mo-handle:hover { color: #2271b1; }
-        .evk-mo-label { flex: 1; }
-        .evk-mo-remove { background: none; border: none; color: #ef4444; cursor: pointer; padding: 0; font-size: 16px; line-height: 1; }
-        .evk-mo-remove:hover { color: #b91c1c; }
-        @keyframes rotation { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    </style>
 
-    <script>
-    (function($){
-        var $list  = $('#evk-menu-order-list');
-        var sepCount = 0;
+        return $row;
+    }
 
-        function buildRow(item) {
-            var isSep = item.sep || item.slug.indexOf('separator') === 0;
-            var label = isSep ? '— separator —' : (item.label || item.slug);
-            var $row = $(
-                '<div class="evk-mo-row' + (isSep ? ' is-sep' : '') + '" data-slug="' + item.slug + '">' +
-                    '<span class="evk-mo-handle dashicons dashicons-menu"></span>' +
-                    '<span class="evk-mo-label">' + $('<span>').text(label).html() + '</span>' +
-                    (isSep ? '<button type="button" class="evk-mo-remove" title="Usuń">×</button>' : '') +
-                '</div>'
-            );
-            $row.find('.evk-mo-remove').on('click', function(){ $row.remove(); });
-            return $row;
+    function renderList(allItems, savedOrder) {
+        $list.empty();
+        var rendered = [];
+        if (savedOrder && savedOrder.length) {
+            savedOrder.forEach(function(slug) {
+                var found = allItems.find(function(i){ return i.slug === slug; });
+                if (found) { $list.append(buildRow(found)); rendered.push(slug); }
+                else if (String(slug).indexOf('separator') === 0) {
+                    $list.append(buildRow({ slug: slug, sep: true }));
+                    rendered.push(slug);
+                }
+            });
+            allItems.forEach(function(item) {
+                if (rendered.indexOf(item.slug) === -1) $list.append(buildRow(item));
+            });
+        } else {
+            allItems.forEach(function(item) { $list.append(buildRow(item)); });
         }
+    }
 
-        function renderList(allItems, savedOrder) {
-            $list.empty();
-            var rendered = [];
-            if (savedOrder && savedOrder.length) {
-                savedOrder.forEach(function(slug) {
-                    var found = allItems.find(function(i){ return i.slug === slug; });
-                    if (found) { $list.append(buildRow(found)); rendered.push(slug); }
-                    else if (slug.indexOf('separator') === 0) {
-                        $list.append(buildRow({ slug: slug, label: '— separator —', sep: true }));
-                        rendered.push(slug);
-                    }
-                });
-                allItems.forEach(function(item) {
-                    if (rendered.indexOf(item.slug) === -1) $list.append(buildRow(item));
-                });
-            } else {
-                allItems.forEach(function(item) { $list.append(buildRow(item)); });
+    $('#evk-sm-loading').remove();
+    renderList(evkSMData.items, evkSMData.saved_order);
+
+    if (typeof Sortable !== 'undefined') {
+        Sortable.create($list[0], {
+            handle: '.evk-sm-handle',
+            animation: 150,
+            ghostClass: 'evk-drag-ghost',
+            chosenClass: 'evk-drag-chosen',
+            filter: 'input,button',
+            preventOnFilter: false,
+        });
+    }
+
+    // Dodaj separator
+    $('#evk-sm-add-sep').on('click', function(){
+        $list.append(buildRow({ slug: 'separator-custom-' + (++sepCount), sep: true }));
+    });
+
+    // Reset kolejności
+    $('#evk-sm-reset').on('click', function(){
+        if (!confirm('Zresetować kolejność do domyślnej WP?')) return;
+        renderList(evkSMData.items, []);
+    });
+
+    // Przed submitem — serializuj kolejność, ukryte i nazwy do hidden inputów
+    $('#evk-wl-form').on('submit.sidebar', function(){
+        var order   = [];
+        var hidden  = [];
+        // Wyczyść stare hidden inputy sidebar_labels wygenerowane przez PHP
+        $('input[name^="evk_white_label[sidebar_labels]"]').remove();
+
+        $list.find('.evk-sm-row').each(function(){
+            var $r    = $(this);
+            var slug  = $r.data('slug');
+            var isSep = $r.hasClass('is-sep');
+            order.push(slug);
+            if (!isSep && ($r.data('hidden') === '1' || $r.data('hidden') === 1)) {
+                hidden.push(slug);
             }
-        }
-
-        function initSortable() {
-            if (typeof Sortable !== 'undefined') {
-                Sortable.create($list[0], {
-                    handle: '.evk-mo-handle',
-                    animation: 150,
-                    ghostClass: 'evk-drag-ghost',
-                    chosenClass: 'evk-drag-chosen',
-                });
+            if (!isSep) {
+                var renamed = $r.find('.evk-sm-rename').val().trim();
+                if (renamed) {
+                    $('<input type="hidden">').attr('name','evk_white_label[sidebar_labels]['+slug+']').val(renamed).appendTo('#evk-wl-form');
+                }
             }
-        }
-
-        var evkMenuData = <?php
-            global $menu;
-            $mo_items = [];
-            foreach ((array) $menu as $pos => $item) {
-                $slug  = $item[2] ?? '';
-                $title = preg_replace('/<span[^>]*>.*<\/span>/Us', '', $item[0] ?? '');
-                $title = trim(strip_tags($title));
-                $is_sep = (strpos($slug, 'separator') === 0 || ($item[4] ?? '') === 'wp-menu-separator');
-                $mo_items[] = [
-                    'slug'  => $slug ?: 'separator-' . $pos,
-                    'label' => $is_sep ? '— separator —' : ($title ?: $slug),
-                    'sep'   => $is_sep,
-                ];
-            }
-            echo wp_json_encode([
-                'items'       => $mo_items,
-                'saved_order' => $wl['sidebar_menu_order'] ?? [],
-            ]);
-        ?>;
-
-        $('#evk-menu-order-loading').remove();
-        renderList(evkMenuData.items, evkMenuData.saved_order);
-
-        if (document.readyState === 'complete') initSortable();
-        else $(window).on('load', initSortable);
-
-        // Dodaj separator
-        $('#evk-menu-order-add-sep').on('click', function(){
-            var slug = 'separator-custom-' + (++sepCount);
-            $list.append(buildRow({ slug: slug, sep: true }));
         });
 
-        // Reset kolejności
-        $('#evk-menu-order-reset').on('click', function(){
-            if (!confirm('Zresetować kolejność do domyślnej WP?')) return;
-            renderList(evkMenuData.items, []);
-            $('#evk-wl-menu-order-json').val('[]');
-        });
+        $('#evk-wl-menu-order-json').val(JSON.stringify(order));
 
-        // Przed submitem — serializuj kolejność do hidden inputa
-        $('#evk-wl-form').on('submit', function(){
-            var order = [];
-            $list.find('.evk-mo-row').each(function(){ order.push($(this).data('slug')); });
-            $('#evk-wl-menu-order-json').val(JSON.stringify(order));
-        });
+        // Nadpisz sentinel hidden inputy dla sidebar_hidden[]
+        $('input[name="evk_white_label[sidebar_hidden][]"]').remove();
+        if (hidden.length === 0) {
+            $('<input type="hidden" name="evk_white_label[sidebar_hidden][]" value="">').appendTo('#evk-wl-form');
+        } else {
+            hidden.forEach(function(slug){
+                $('<input type="hidden" name="evk_white_label[sidebar_hidden][]">').val(slug).appendTo('#evk-wl-form');
+            });
+        }
+    });
 
-    })(jQuery);
-    </script>
+})(jQuery);
+</script>
 
 <!-- WŁASNE MENU PASKA — wewnątrz tej samej formy -->
 <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--evo-border,#e0e0e0);">
