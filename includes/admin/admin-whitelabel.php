@@ -488,14 +488,15 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     $('#evk-sm-loading').remove();
     renderList(evkSMData.items, evkSMData.saved_order);
 
-    if (typeof Sortable !== 'undefined') {
-        Sortable.create($list[0], {
-            handle: '.evk-sm-handle',
-            animation: 150,
-            ghostClass: 'evk-drag-ghost',
-            chosenClass: 'evk-drag-chosen',
-            filter: 'input,button',
-            preventOnFilter: false,
+    if (document.readyState === 'complete') {
+        if (typeof Sortable !== 'undefined') {
+            Sortable.create($list[0], { handle: '.evk-sm-handle', animation: 150, ghostClass: 'evk-drag-ghost', chosenClass: 'evk-drag-chosen' });
+        }
+    } else {
+        $(window).on('load.evk-sm', function(){
+            if (typeof Sortable !== 'undefined') {
+                Sortable.create($list[0], { handle: '.evk-sm-handle', animation: 150, ghostClass: 'evk-drag-ghost', chosenClass: 'evk-drag-chosen' });
+            }
         });
     }
 
