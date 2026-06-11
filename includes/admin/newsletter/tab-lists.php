@@ -86,11 +86,11 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
             <div class="evk-nl-card-head" style="flex-wrap:wrap;gap:8px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <strong style="font-size:14px;"><?php echo esc_html($current_list['name']); ?></strong>
-                    <label class="evk-toggle" title="Aktywna/nieaktywna">
+                    <label class="evo-toggle" title="Aktywna/nieaktywna">
                         <input type="checkbox" class="evk-nl-list-toggle"
                                data-id="<?php echo (int) $current_list['id']; ?>"
                                <?php checked((int) $current_list['status'], 1); ?>>
-                        <span class="evk-toggle-slider"></span>
+                        <span class="evo-slider"></span>
                     </label>
                 </div>
                 <div style="display:flex;gap:6px;">
@@ -101,6 +101,24 @@ $base_url    = admin_url('options-general.php?page=evoke-one&tab=newsletter&subt
                     <button class="button button-small evk-nl-delete-list-btn"
                             data-id="<?php echo (int) $current_list['id']; ?>"
                             style="color:#dc2626;border-color:#dc2626;">Usuń listę</button>
+                </div>
+            </div>
+
+            <!-- Inline formularz edycji listy -->
+            <div id="evk-nl-edit-inline" style="display:none;border-bottom:1px solid #e2e8f0;">
+                <div class="evk-nl-card-body">
+                    <p style="margin:0 0 10px;font-weight:600;font-size:13px;">Edytuj listę</p>
+                    <input type="hidden" id="evk-nl-edit-id" value="">
+                    <label class="evk-nl-label">Nazwa listy</label>
+                    <input type="text" id="evk-nl-edit-name" class="widefat" style="margin-bottom:10px;">
+                    <p style="margin:0 0 6px;font-weight:600;font-size:12px;color:#374151;">Pola dodatkowe</p>
+                    <div id="evk-nl-edit-fields-repeater"></div>
+                    <button class="button button-small" id="evk-nl-edit-add-field-btn" style="margin-bottom:10px;">+ Pole</button>
+                    <div style="display:flex;gap:6px;">
+                        <button class="button button-primary button-small" id="evk-nl-edit-save-btn">Zapisz</button>
+                        <button class="button button-small" id="evk-nl-edit-cancel-btn">Anuluj</button>
+                    </div>
+                    <div id="evk-nl-edit-msg" style="margin-top:6px;font-size:12px;"></div>
                 </div>
             </div>
 
@@ -195,12 +213,48 @@ jQuery(function($) {
 
     $(document).on('click', '.evk-nl-edit-list-btn', function() {
         var btn = $(this);
-        $('#evk-nl-list-id').val(btn.data('id'));
-        $('#evk-nl-list-name').val(btn.data('name'));
-        $('#evk-nl-fields-repeater').empty();
-        (JSON.parse(btn.data('fields') || '[]')).forEach(function(f) { addFieldRow(f.name, f.label, f.enabled); });
-        $('#evk-nl-list-form-title').text('Edytuj listę');
-        $('#evk-nl-list-form').slideDown();
+        $('#evk-nl-edit-id').val(btn.data('id'));
+        $('#evk-nl-edit-name').val(btn.data('name'));
+        $('#evk-nl-edit-fields-repeater').empty();
+        (JSON.parse(btn.data('fields') || '[]')).forEach(function(f) { addEditFieldRow(f.name, f.label, f.enabled); });
+        $('#evk-nl-edit-inline').slideDown();
+        $('#evk-nl-edit-name').focus();
+    });
+
+    $('#evk-nl-edit-cancel-btn').on('click', function() { $('#evk-nl-edit-inline').slideUp(); });
+
+    $('#evk-nl-edit-add-field-btn').on('click', function(e) { e.preventDefault(); addEditFieldRow('','',true); });
+
+    function addEditFieldRow(name, label, enabled) {
+        $('#evk-nl-edit-fields-repeater').append(
+            '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">' +
+            '<input type="text" class="evk-nl-edit-field-name" placeholder="klucz" style="width:90px;font-size:12px;" value="'+$('<div>').text(name).html()+'">' +
+            '<input type="text" class="evk-nl-edit-field-label" placeholder="Etykieta" style="flex:1;font-size:12px;" value="'+$('<div>').text(label).html()+'">' +
+            '<label style="font-size:11px;white-space:nowrap;"><input type="checkbox" class="evk-nl-edit-field-enabled"'+(enabled?' checked':'')+'>wł</label>' +
+            '<button class="button button-small evk-nl-remove-edit-field" style="color:#dc2626;">✕</button>' +
+            '</div>'
+        );
+    }
+    $(document).on('click', '.evk-nl-remove-edit-field', function(e) { e.preventDefault(); $(this).closest('div').remove(); });
+
+    $('#evk-nl-edit-save-btn').on('click', function() {
+        var fields = [];
+        $('#evk-nl-edit-fields-repeater > div').each(function() {
+            var n = $(this).find('.evk-nl-edit-field-name').val().trim();
+            if (n) fields.push({name:n, label:$(this).find('.evk-nl-edit-field-label').val().trim(), enabled:$(this).find('.evk-nl-edit-field-enabled').is(':checked')});
+        });
+        $.post(ajaxurl, {action:'evk_nl_save_list', nonce:nonce,
+            id: $('#evk-nl-edit-id').val(),
+            name: $('#evk-nl-edit-name').val(),
+            fields_config: JSON.stringify(fields)
+        }, function(res) {
+            if (res.success) {
+                $('#evk-nl-edit-msg').text('Zapisano!').css('color','#16a34a');
+                setTimeout(function(){ location.reload(); }, 700);
+            } else {
+                $('#evk-nl-edit-msg').text(res.data?.msg||'Błąd').css('color','#dc2626');
+            }
+        });
     });
 
     $('#evk-nl-add-field-btn').on('click', function(e) { e.preventDefault(); addFieldRow('','',true); });
