@@ -606,20 +606,78 @@ add_action('admin_enqueue_scripts', function () {
     }
 });
 
-// @font-face + font-family — przez admin_head priorytet 1 (bardzo wcześnie)
+// @font-face + font-family — base64 inline eliminuje FOUT całkowicie
+// (brak requestu sieciowego = czcionka dostępna natychmiast)
 add_action('admin_head', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
 
-    $ff        = sanitize_text_field($wl['admin_font_family']);
-    $font_face = evk_wl_get_bricks_font_face($ff);
-    $ff_esc    = esc_attr($ff);
+    $ff     = sanitize_text_field($wl['admin_font_family']);
+    $ff_esc = esc_attr($ff);
+
+    // Spróbuj zbudować @font-face z base64 (cache w transiencie 7 dni)
+    $transient_key = 'evk_wl_font_b64_' . md5($ff);
+    $font_face     = get_transient($transient_key);
+
+    if ($font_face === false) {
+        $font_face = ''; // domyślnie pusty
+        $bricks_fonts = get_option('bricks_custom_fonts', []);
+        if (is_array($bricks_fonts)) {
+            foreach ($bricks_fonts as $font) {
+                if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
+                foreach ((array)($font['files'] ?? []) as $file) {
+                    $url    = $file['file'] ?? '';
+                    $format = sanitize_text_field($file['format'] ?? 'woff2');
+                    if (!$url || $format !== 'woff2') continue;
+
+                    // Pobierz plik lokalnie (przez ścieżkę lub HTTP)
+                    $local_path = str_replace(
+                        [site_url('/'), home_url('/')],
+                        [ABSPATH, ABSPATH],
+                        $url
+                    );
+                    $data = false;
+                    if (file_exists($local_path)) {
+                        $data = file_get_contents($local_path);
+                    } else {
+                        $response = wp_remote_get($url, ['timeout' => 5]);
+                        if (!is_wp_error($response)) {
+                            $data = wp_remote_retrieve_body($response);
+                        }
+                    }
+
+                    if ($data) {
+                        $b64       = base64_encode($data);
+                        $weight    = sanitize_text_field($font['weight'] ?? 'normal');
+                        $style     = sanitize_text_field($font['style']  ?? 'normal');
+                        $font_face = "@font-face{font-family:'{$ff_esc}';src:url('data:font/woff2;base64,{$b64}') format('woff2');font-weight:{$weight};font-style:{$style};font-display:block;}";
+                    }
+                    break 2;
+                }
+            }
+        }
+        // Zapisz w transiencie (nawet pusty string — żeby nie próbować ponownie przy każdym req)
+        set_transient($transient_key, $font_face, 7 * DAY_IN_SECONDS);
+    }
+
+    // Fallback do normalnego @font-face gdy base64 niedostępne
+    if (!$font_face) {
+        $font_face = evk_wl_get_bricks_font_face($ff);
+    }
 
     echo '<style id="evk-wl-font">';
     if ($font_face) echo $font_face;
     echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
 }, 1);
+
+// Wyczyść transient gdy zmieni się czcionka
+add_action('update_option_evk_white_label', function ($old, $new) {
+    if (($old['admin_font_family'] ?? '') !== ($new['admin_font_family'] ?? '')) {
+        delete_transient('evk_wl_font_b64_' . md5(sanitize_text_field($old['admin_font_family'] ?? '')));
+        delete_transient('evk_wl_font_b64_' . md5(sanitize_text_field($new['admin_font_family'] ?? '')));
+    }
+}, 10, 2);
 
 
 // -------------------------------------------------------------------------
