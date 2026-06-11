@@ -15,6 +15,7 @@ function evk_wl_defaults(): array {
         'enabled'                  => 0,
         'logo_url'                 => '',
         'logo_width'               => 160,
+        'logo_height'              => 60,
         'site_name'                => '',
         'footer_text'              => '',
         'color_primary'            => '#2563eb',
@@ -40,7 +41,6 @@ function evk_wl_defaults(): array {
         'hide_help_tab'            => 1,
         'hide_screen_opts'         => 0,
         'hide_footer_wp'           => 1,
-        'admin_font_url'           => '',
         'admin_font_family'        => '',
         'color_admin_bar_link'     => '',
         'color_submenu_current_bg' => '',
@@ -204,6 +204,7 @@ add_action('admin_init', function () {
                 'enabled'                => !empty($input['enabled']) ? 1 : 0,
                 'logo_url'               => array_key_exists('logo_url', $input)           ? esc_url_raw($input['logo_url'])                          : $current['logo_url'],
                 'logo_width'             => array_key_exists('logo_width', $input)         ? max(40, min(400, absint($input['logo_width'])))           : $current['logo_width'],
+                'logo_height'            => array_key_exists('logo_height', $input)        ? max(20, min(200, absint($input['logo_height'])))          : $current['logo_height'],
                 'site_name'              => array_key_exists('site_name', $input)          ? sanitize_text_field($input['site_name'])                  : $current['site_name'],
                 'footer_text'            => array_key_exists('footer_text', $input)        ? wp_kses_post($input['footer_text'])                       : $current['footer_text'],
                 'color_primary'          => $color('color_primary', '#2563eb'),
@@ -229,7 +230,6 @@ add_action('admin_init', function () {
                 'color_content_text'     => $color('color_content_text'),
                 'color_link'             => $color('color_link'),
                 'color_notice_bg'        => $color('color_notice_bg'),
-                'admin_font_url'         => array_key_exists('admin_font_url', $input)      ? esc_url_raw($input['admin_font_url'])                      : $current['admin_font_url'],
                 'admin_font_family'      => array_key_exists('admin_font_family', $input)   ? sanitize_text_field($input['admin_font_family'])            : $current['admin_font_family'],
                 'color_admin_bar_link'   => $color('color_admin_bar_link'),
                 'color_submenu_current_bg' => $color('color_submenu_current_bg'),
@@ -516,7 +516,8 @@ add_action('admin_head', function () {
     if (!empty($wl['logo_url'])) {
         $url   = esc_url($wl['logo_url']);
         $width = (int) $wl['logo_width'];
-        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:auto;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;}";
+        $height = (int) $wl['logo_height'];
+        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;height:{$height}px;max-width:calc(100% - 16px);margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;}";
     }
 
     if (!empty($wl['color_primary'])) {
@@ -611,10 +612,8 @@ add_action('admin_head', function () {
         $css .= ".notice,.notice-success,.notice-error,.notice-warning,.notice-info{background:{$nb}!important;border-color:rgba(0,0,0,.1)!important;}";
     }
 
-    if (!empty($wl['admin_font_url']) && !empty($wl['admin_font_family'])) {
-        $fu  = esc_url($wl['admin_font_url']);
+    if (!empty($wl['admin_font_family'])) {
         $ff  = esc_attr($wl['admin_font_family']);
-        $css .= "@import url('{$fu}');";
         $css .= "#wpcontent,#adminmenu,#wpadminbar,body.wp-admin{font-family:{$ff},sans-serif!important;}";
     }
 

@@ -91,8 +91,13 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         <?php endif; ?>
     </div>
     <div class="evo-field">
-        <label>Szerokość logo (px)</label>
-        <input type="number" name="evk_white_label[logo_width]" value="<?php echo esc_attr($wl['logo_width']); ?>" min="40" max="400" style="width:100px;">
+        <label>Wymiary logo (px)</label>
+        <div style="display:flex;gap:12px;align-items:center;">
+            <label style="font-size:12px;color:#666;margin:0;">szer.</label>
+            <input type="number" name="evk_white_label[logo_width]" value="<?php echo esc_attr($wl['logo_width']); ?>" min="40" max="400" style="width:80px;" placeholder="160">
+            <label style="font-size:12px;color:#666;margin:0;">wys.</label>
+            <input type="number" name="evk_white_label[logo_height]" value="<?php echo esc_attr($wl['logo_height'] ?? 60); ?>" min="20" max="200" style="width:80px;" placeholder="60">
+        </div>
     </div>
 
     <p class="evo-section-title">Branding</p>
@@ -107,13 +112,9 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 
     <p class="evo-section-title">Czcionka admina</p>
     <div class="evo-field">
-        <label>URL czcionki Google Fonts / @import</label>
-        <input type="url" name="evk_white_label[admin_font_url]" value="<?php echo esc_attr($wl['admin_font_url']); ?>" placeholder="https://fonts.googleapis.com/css2?family=Inter...">
-        <p class="evo-desc" style="margin:4px 0 0;">Wklej link z Google Fonts (zakładka <em>@import</em> → URL między <code>url(...)</code>).</p>
-    </div>
-    <div class="evo-field">
-        <label>Nazwa rodziny czcionki (font-family)</label>
+        <label>Nazwa czcionki (font-family)</label>
         <input type="text" name="evk_white_label[admin_font_family]" value="<?php echo esc_attr($wl['admin_font_family']); ?>" placeholder="Inter">
+        <p class="evo-desc" style="margin:4px 0 0;">Wpisz dokładną nazwę czcionki zarejestrowanej w Bricks (lub systemowej). Czcionka musi być już załadowana przez motyw.</p>
     </div>
 
     <p class="evo-section-title">Pasek górny — wygląd</p>
