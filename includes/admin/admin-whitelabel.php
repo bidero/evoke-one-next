@@ -533,9 +533,7 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
             if (!isSep) {
                 if ($r.data('hidden') == '1') hidden.push(slug);
                 var renamed = $r.find('.evk-sm-rename').val().trim();
-                if (renamed) {
-                    $('<input type="hidden">').attr('name', 'evk_white_label[sidebar_labels][' + slug + ']').val(renamed).appendTo($form);
-                }
+                $('<input type="hidden">').attr('name', 'evk_white_label[sidebar_labels][' + slug + ']').val(renamed).appendTo($form);
             }
         });
 
