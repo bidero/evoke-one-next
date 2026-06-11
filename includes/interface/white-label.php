@@ -506,7 +506,7 @@ add_action('admin_head', function () {
     if (!empty($wl['logo_url'])) {
         $url   = esc_url($wl['logo_url']);
         $width = (int) $wl['logo_width'];
-        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:60px;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;}";
+        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:auto;aspect-ratio:auto;min-height:32px;max-height:80px;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;background-size:contain;}";
     }
 
     if (!empty($wl['color_primary'])) {
@@ -577,7 +577,10 @@ add_action('admin_head', function () {
 
     if (!empty($wl['color_content_bg'])) {
         $bg   = esc_attr($wl['color_content_bg']);
-        $css .= "#wpcontent,#wpbody,#wpbody-content{background:{$bg}!important;}";
+        $css .= "#wpwrap,#wpcontent,#wpbody,#wpbody-content{background:{$bg}!important;}";
+        // Strzałki submenu (pseudo-elementy ::after) muszą pasować do tła treści
+        $css .= "ul#adminmenu a.wp-has-current-submenu:after,ul#adminmenu>li.current>a.current:after{border-right-color:{$bg}!important;}";
+        $css .= "#adminmenu li.wp-has-submenu.wp-not-current-submenu.opensub:hover:after,#adminmenu li.wp-has-submenu.wp-not-current-submenu:focus-within:after{border-right-color:{$bg}!important;}";
     }
 
     if (!empty($wl['color_content_text'])) {
