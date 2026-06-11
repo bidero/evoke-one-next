@@ -50,98 +50,54 @@ function evk_wl_defaults(): array {
 
 function evk_wl_normalize(array $data): array {
     $result = array_merge(evk_wl_defaults(), $data);
-
-    if (!is_array($result['bar_nodes_hidden'])) {
-        $result['bar_nodes_hidden'] = [];
-    }
-    if (!is_array($result['sidebar_hidden'])) {
-        $result['sidebar_hidden'] = [];
-    }
-    if (!is_array($result['bar_nodes_order'])) {
-        $result['bar_nodes_order'] = [];
-    }
-    if (!is_array($result['sidebar_menu_order'])) {
-        $result['sidebar_menu_order'] = [];
-    }
-
+    if (!is_array($result['bar_nodes_hidden']))   $result['bar_nodes_hidden']   = [];
+    if (!is_array($result['sidebar_hidden']))     $result['sidebar_hidden']     = [];
+    if (!is_array($result['bar_nodes_order']))    $result['bar_nodes_order']    = [];
+    if (!is_array($result['sidebar_menu_order'])) $result['sidebar_menu_order'] = [];
     return $result;
 }
 
 function evk_wl_get(): array {
     static $cached = null;
-
-    if ($cached !== null) {
-        return $cached;
-    }
-
+    if ($cached !== null) return $cached;
     $stored = get_option('evk_white_label', []);
     $stored = is_array($stored) ? $stored : [];
     $cached = evk_wl_normalize($stored);
-
     return $cached;
 }
 
-/**
- * Własne pozycje admin bara — osobna opcja (zarządzana przez AJAX, nie przez formularz Settings API).
- */
 function evk_wl_bar_items_get(): array {
     static $cached = null;
-
-    if ($cached !== null) {
-        return $cached;
-    }
-
-    $raw   = get_option('evk_wl_bar_items', '[]');
-    $items = is_string($raw) ? json_decode($raw, true) : [];
-
+    if ($cached !== null) return $cached;
+    $raw    = get_option('evk_wl_bar_items', '[]');
+    $items  = is_string($raw) ? json_decode($raw, true) : [];
     $cached = is_array($items) ? $items : [];
     return $cached;
 }
 
-/**
- * Sanitize slugu pozycji menu — zachowuje .php, ?, =, &, %.
- */
 function evk_wl_sanitize_menu_slug(string $slug): string {
     return preg_replace('/[^a-zA-Z0-9._\-?=&%]/', '', $slug);
 }
 
-/**
- * Sanitize tablicy kolejności węzłów — klucz: node_id, wartość: int 0-99.
- */
 function evk_wl_sanitize_order(array $raw): array {
     $clean = [];
     foreach ($raw as $node_id => $order) {
         $node_id = sanitize_key((string) $node_id);
         $order   = max(0, min(99, (int) $order));
-
-        if ($node_id !== '' && $order > 0) {
-            $clean[$node_id] = $order;
-        }
+        if ($node_id !== '' && $order > 0) $clean[$node_id] = $order;
     }
     return $clean;
 }
 
-/**
- * Helper: hex kolor → "R, G, B" string dla CSS --rgb
- */
 function evk_hex_to_rgb(string $hex): string {
     $hex = ltrim($hex, '#');
-
-    if (strlen($hex) === 3) {
-        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
-    }
-
-    if (strlen($hex) !== 6) {
-        return '37, 99, 235';
-    }
-
-    return hexdec(substr($hex, 0, 2)) . ', '
-         . hexdec(substr($hex, 2, 2)) . ', '
-         . hexdec(substr($hex, 4, 2));
+    if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+    if (strlen($hex) !== 6) return '37, 99, 235';
+    return hexdec(substr($hex,0,2)).', '.hexdec(substr($hex,2,2)).', '.hexdec(substr($hex,4,2));
 }
 
 // =========================================================================
-// REJESTRACJA USTAWIEŃ (tylko evk_white_label — bar_items tylko przez AJAX)
+// REJESTRACJA USTAWIEŃ
 // =========================================================================
 
 add_action('admin_init', function () {
@@ -153,34 +109,16 @@ add_action('admin_init', function () {
             $resets = [];
             if (!empty($input['_resets'])) {
                 $decoded = json_decode(wp_unslash($input['_resets']), true);
-                if (is_array($decoded)) {
-                    $resets = $decoded;
-                }
+                if (is_array($decoded)) $resets = $decoded;
             }
 
             $color = function (string $key, string $fallback = '') use ($input, $resets, $current): string {
-                if (in_array($key, $resets, true)) {
-                    return '';
-                }
-
-                if (array_key_exists($key, $input)) {
-                    return sanitize_hex_color($input[$key]) ?: $fallback;
-                }
-
+                if (in_array($key, $resets, true)) return '';
+                if (array_key_exists($key, $input)) return sanitize_hex_color($input[$key]) ?: $fallback;
                 return $current[$key] ?? $fallback;
             };
 
-            $allowed_nodes = [
-                'wp-logo',
-                'site-name',
-                'updates',
-                'comments',
-                'new-content',
-                'my-account',
-                'search',
-                'customize',
-                'edit',
-            ];
+            $allowed_nodes = ['wp-logo','site-name','updates','comments','new-content','my-account','search','customize','edit'];
 
             $bar_nodes_hidden = $current['bar_nodes_hidden'];
             if (array_key_exists('bar_nodes_hidden', $input)) {
@@ -188,9 +126,7 @@ add_action('admin_init', function () {
                 if (is_array($input['bar_nodes_hidden'])) {
                     foreach ($input['bar_nodes_hidden'] as $node) {
                         $node = sanitize_text_field((string) $node);
-                        if (in_array($node, $allowed_nodes, true)) {
-                            $bar_nodes_hidden[] = $node;
-                        }
+                        if (in_array($node, $allowed_nodes, true)) $bar_nodes_hidden[] = $node;
                     }
                 }
             }
@@ -201,9 +137,7 @@ add_action('admin_init', function () {
                 if (is_array($input['sidebar_hidden'])) {
                     foreach ($input['sidebar_hidden'] as $slug) {
                         $slug = evk_wl_sanitize_menu_slug((string) $slug);
-                        if ($slug !== '') {
-                            $sidebar_hidden[] = $slug;
-                        }
+                        if ($slug !== '') $sidebar_hidden[] = $slug;
                     }
                 }
             }
@@ -213,7 +147,6 @@ add_action('admin_init', function () {
                 $bar_nodes_order = evk_wl_sanitize_order($input['bar_nodes_order']);
             }
 
-            // KLUCZOWE: nie resetuj kolejności menu, jeśli formularz jej nie wysyła
             $sidebar_menu_order = $current['sidebar_menu_order'];
             if (array_key_exists('sidebar_menu_order', $input) && is_array($input['sidebar_menu_order'])) {
                 $sidebar_menu_order = array_values(array_filter(array_map(
@@ -224,18 +157,10 @@ add_action('admin_init', function () {
 
             $output = [
                 'enabled'                => !empty($input['enabled']) ? 1 : 0,
-                'logo_url'               => array_key_exists('logo_url', $input)
-                    ? esc_url_raw($input['logo_url'])
-                    : $current['logo_url'],
-                'logo_width'             => array_key_exists('logo_width', $input)
-                    ? max(40, min(400, absint($input['logo_width'])))
-                    : $current['logo_width'],
-                'site_name'              => array_key_exists('site_name', $input)
-                    ? sanitize_text_field($input['site_name'])
-                    : $current['site_name'],
-                'footer_text'            => array_key_exists('footer_text', $input)
-                    ? wp_kses_post($input['footer_text'])
-                    : $current['footer_text'],
+                'logo_url'               => array_key_exists('logo_url', $input)           ? esc_url_raw($input['logo_url'])                          : $current['logo_url'],
+                'logo_width'             => array_key_exists('logo_width', $input)         ? max(40, min(400, absint($input['logo_width'])))           : $current['logo_width'],
+                'site_name'              => array_key_exists('site_name', $input)          ? sanitize_text_field($input['site_name'])                  : $current['site_name'],
+                'footer_text'            => array_key_exists('footer_text', $input)        ? wp_kses_post($input['footer_text'])                       : $current['footer_text'],
                 'color_primary'          => $color('color_primary', '#2563eb'),
                 'color_menu_bg'          => $color('color_menu_bg'),
                 'color_menu_text'        => $color('color_menu_text'),
@@ -247,9 +172,7 @@ add_action('admin_init', function () {
                 'color_menu_badge'       => $color('color_menu_badge'),
                 'color_menu_badge_text'  => $color('color_menu_badge_text'),
                 'hide_admin_bar_logo'    => !empty($input['hide_admin_bar_logo']) ? 1 : 0,
-                'admin_bar_title'        => array_key_exists('admin_bar_title', $input)
-                    ? sanitize_text_field($input['admin_bar_title'])
-                    : $current['admin_bar_title'],
+                'admin_bar_title'        => array_key_exists('admin_bar_title', $input)    ? sanitize_text_field($input['admin_bar_title'])            : $current['admin_bar_title'],
                 'admin_bar_color'        => $color('admin_bar_color'),
                 'admin_bar_hover_color'  => $color('admin_bar_hover_color'),
                 'admin_bar_sub_color'    => $color('admin_bar_sub_color'),
@@ -261,12 +184,7 @@ add_action('admin_init', function () {
                 'color_content_text'     => $color('color_content_text'),
                 'color_link'             => $color('color_link'),
                 'color_notice_bg'        => $color('color_notice_bg'),
-
-                // Nie niszcz CSS-a strip_all_tags; tylko unslash + trim.
-                'custom_css_admin'       => array_key_exists('custom_css_admin', $input)
-                    ? trim(wp_unslash((string) $input['custom_css_admin']))
-                    : $current['custom_css_admin'],
-
+                'custom_css_admin'       => array_key_exists('custom_css_admin', $input)   ? trim(wp_unslash((string) $input['custom_css_admin']))      : $current['custom_css_admin'],
                 'bar_nodes_hidden'       => array_values(array_unique($bar_nodes_hidden)),
                 'sidebar_hidden'         => array_values(array_unique($sidebar_hidden)),
                 'bar_nodes_order'        => $bar_nodes_order,
@@ -284,13 +202,9 @@ add_action('admin_init', function () {
 
 add_action('wp_ajax_evk_wl_get_sidebar_menu', function () {
     check_ajax_referer('evoke-one-wl-bar', 'nonce');
-
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('forbidden', 403);
-    }
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
 
     global $menu;
-
     $items = [];
     foreach ((array) $menu as $pos => $item) {
         $slug   = $item[2] ?? '';
@@ -300,7 +214,6 @@ add_action('wp_ajax_evk_wl_get_sidebar_menu', function () {
         $title  = preg_replace('/<span.*<\/span>/U', '', (string) $title);
         $title  = trim(strip_tags((string) $title));
         $is_sep = (strpos((string) $slug, 'separator') === 0 || $class === 'wp-menu-separator');
-
         $items[] = [
             'slug'  => $slug ?: 'separator-' . (int) $pos,
             'label' => $is_sep ? '— separator —' : ($title ?: $slug),
@@ -308,37 +221,23 @@ add_action('wp_ajax_evk_wl_get_sidebar_menu', function () {
             'sep'   => $is_sep,
         ];
     }
-
     $wl = evk_wl_get();
-
-    wp_send_json_success([
-        'items'       => $items,
-        'saved_order' => $wl['sidebar_menu_order'] ?? [],
-    ]);
+    wp_send_json_success(['items' => $items, 'saved_order' => $wl['sidebar_menu_order'] ?? []]);
 });
 
 add_action('wp_ajax_evk_wl_save_menu_order', function () {
     check_ajax_referer('evoke-one-wl-bar', 'nonce');
-
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('forbidden', 403);
-    }
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
 
     $raw   = wp_unslash($_POST['order'] ?? '[]');
     $order = json_decode($raw, true);
+    if (!is_array($order)) wp_send_json_error('invalid_json', 400);
 
-    if (!is_array($order)) {
-        wp_send_json_error('invalid_json', 400);
-    }
-
-    $clean = array_values(array_filter(array_map('evk_wl_sanitize_menu_slug', $order)));
-
+    $clean  = array_values(array_filter(array_map('evk_wl_sanitize_menu_slug', $order)));
     $stored = get_option('evk_white_label', []);
     $stored = is_array($stored) ? $stored : evk_wl_defaults();
     $stored = evk_wl_normalize($stored);
-
     $stored['sidebar_menu_order'] = $clean;
-
     update_option('evk_white_label', $stored);
 
     wp_send_json_success(['count' => count($clean)]);
@@ -346,25 +245,16 @@ add_action('wp_ajax_evk_wl_save_menu_order', function () {
 
 add_action('wp_ajax_evk_wl_save_bar_items', function () {
     check_ajax_referer('evoke-one-wl-bar', 'nonce');
-
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('forbidden', 403);
-    }
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
 
     $raw   = wp_unslash($_POST['items'] ?? '[]');
     $items = json_decode($raw, true);
-
-    if (!is_array($items)) {
-        wp_send_json_error('invalid_json', 400);
-    }
+    if (!is_array($items)) wp_send_json_error('invalid_json', 400);
 
     $clean = [];
     foreach ($items as $item) {
         $title = trim((string) ($item['title'] ?? ''));
-        if ($title === '') {
-            continue;
-        }
-
+        if ($title === '') continue;
         $clean[] = [
             'id'     => sanitize_key($item['id'] ?? '') ?: 'evk-' . substr(md5(uniqid('', true)), 0, 8),
             'title'  => sanitize_text_field($title),
@@ -375,9 +265,7 @@ add_action('wp_ajax_evk_wl_save_bar_items', function () {
             'type'   => (($item['type'] ?? '') === 'parent') ? 'parent' : 'item',
         ];
     }
-
     update_option('evk_wl_bar_items', wp_json_encode($clean));
-
     wp_send_json_success(['count' => count($clean)]);
 });
 
@@ -387,17 +275,12 @@ add_action('wp_ajax_evk_wl_save_bar_items', function () {
 
 add_action('admin_init', function () {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled'])) {
-        return;
-    }
+    if (empty($wl['enabled'])) return;
 
     if (!empty($wl['hide_wp_logo'])) {
         add_action('wp_before_admin_bar_render', function () {
             global $wp_admin_bar;
-            if ($wp_admin_bar instanceof WP_Admin_Bar) {
-                $wp_admin_bar->remove_node('wp-logo');
-            }
+            if ($wp_admin_bar instanceof WP_Admin_Bar) $wp_admin_bar->remove_node('wp-logo');
         }, 100);
     }
 
@@ -418,45 +301,22 @@ add_action('admin_init', function () {
         add_action('login_head', function () use ($wl) {
             $url   = esc_url($wl['logo_url']);
             $width = (int) $wl['logo_width'];
-
-            echo "<style>
-                .login h1 a{
-                    background-image:url('{$url}')!important;
-                    background-size:contain!important;
-                    background-position:center center!important;
-                    background-repeat:no-repeat!important;
-                    width:{$width}px!important;
-                    height:80px!important;
-                }
-            </style>";
+            echo "<style>.login h1 a{background-image:url('{$url}')!important;background-size:contain!important;background-position:center center!important;background-repeat:no-repeat!important;width:{$width}px!important;height:80px!important;}</style>";
         });
-
-        add_filter('login_headerurl', fn() => home_url());
+        add_filter('login_headerurl',  fn() => home_url());
         add_filter('login_headertext', fn() => get_bloginfo('name'));
     }
 });
 
 // -------------------------------------------------------------------------
-// Admin bar: tytuł witryny — podmiana PHP (bez flash)
+// Admin bar: tytuł witryny
 // -------------------------------------------------------------------------
 add_action('admin_bar_menu', function (WP_Admin_Bar $bar) {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled']) || empty($wl['admin_bar_title'])) {
-        return;
-    }
-
+    if (empty($wl['enabled']) || empty($wl['admin_bar_title'])) return;
     $node = $bar->get_node('site-name');
-    if (!$node) {
-        return;
-    }
-
-    $bar->add_node([
-        'id'    => 'site-name',
-        'title' => esc_html($wl['admin_bar_title']),
-        'href'  => $node->href,
-        'meta'  => $node->meta,
-    ]);
+    if (!$node) return;
+    $bar->add_node(['id' => 'site-name', 'title' => esc_html($wl['admin_bar_title']), 'href' => $node->href, 'meta' => $node->meta]);
 }, 9999);
 
 // -------------------------------------------------------------------------
@@ -464,16 +324,9 @@ add_action('admin_bar_menu', function (WP_Admin_Bar $bar) {
 // -------------------------------------------------------------------------
 add_action('wp_before_admin_bar_render', function () {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled'])) {
-        return;
-    }
-
+    if (empty($wl['enabled'])) return;
     global $wp_admin_bar;
-
-    if (!($wp_admin_bar instanceof WP_Admin_Bar)) {
-        return;
-    }
+    if (!($wp_admin_bar instanceof WP_Admin_Bar)) return;
 
     foreach ((array) $wl['bar_nodes_hidden'] as $node_id) {
         $wp_admin_bar->remove_node($node_id);
@@ -481,53 +334,38 @@ add_action('wp_before_admin_bar_render', function () {
 
     foreach (evk_wl_bar_items_get() as $item) {
         $title = esc_html($item['title'] ?? '');
-
         if (!empty($item['icon'])) {
-            $title = '<span class="ab-icon dashicons ' . esc_attr($item['icon']) . '" style="top:2px;"></span>' . $title;
+            $title = '<span class="ab-icon dashicons '.esc_attr($item['icon']).'" style="top:2px;"></span>'.$title;
         }
-
         $args = [
-            'id'     => $item['id'] ?? ('evk-' . wp_generate_uuid4()),
+            'id'     => $item['id'] ?? ('evk-'.wp_generate_uuid4()),
             'title'  => $title,
             'href'   => !empty($item['href']) ? esc_url($item['href']) : false,
             'parent' => !empty($item['parent']) ? sanitize_key($item['parent']) : false,
             'meta'   => [],
         ];
-
         if (!empty($item['target']) && $item['target'] === '_blank') {
             $args['meta']['target'] = '_blank';
             $args['meta']['rel']    = 'noopener noreferrer';
         }
-
-        if (($item['type'] ?? '') === 'parent') {
-            $args['href'] = false;
-        }
-
+        if (($item['type'] ?? '') === 'parent') $args['href'] = false;
         $wp_admin_bar->add_node($args);
     }
 }, 999);
 
 // -------------------------------------------------------------------------
-// Menu boczne: ukrywanie pozycji dla non-adminów
+// Menu boczne: ukrywanie dla non-adminów
 // -------------------------------------------------------------------------
 add_action('admin_menu', function () {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled'])) {
-        return;
-    }
-
-    if (current_user_can('administrator')) {
-        return;
-    }
-
+    if (empty($wl['enabled']) || current_user_can('administrator')) return;
     foreach ((array) $wl['sidebar_hidden'] as $slug) {
         remove_menu_page($slug);
     }
 }, 999);
 
 // -------------------------------------------------------------------------
-// Kolejność menu bocznego
+// Kolejność menu bocznego + separatory
 // -------------------------------------------------------------------------
 add_filter('custom_menu_order', function ($enabled) {
     $wl = evk_wl_get();
@@ -536,64 +374,43 @@ add_filter('custom_menu_order', function ($enabled) {
 
 add_filter('menu_order', function (array $menu_order) {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled']) || empty($wl['sidebar_menu_order'])) {
-        return $menu_order;
-    }
-
+    if (empty($wl['enabled']) || empty($wl['sidebar_menu_order'])) return $menu_order;
     $saved    = array_values(array_unique(array_filter($wl['sidebar_menu_order'])));
     $existing = $saved;
-
     foreach ($menu_order as $slug) {
-        if (!in_array($slug, $existing, true)) {
-            $existing[] = $slug;
-        }
+        if (!in_array($slug, $existing, true)) $existing[] = $slug;
     }
-
     return $existing;
 }, 999);
 
-// Separator fix: wstrzyknij custom separatory + przebuduj $menu wg zapisanej kolejności
+// Przebuduj $menu bezpośrednio — jedyna pewna metoda dla custom separatorów
 add_action('admin_menu', function () {
     global $menu;
-
     $wl    = evk_wl_get();
     $saved = $wl['sidebar_menu_order'] ?? [];
+    if (empty($wl['enabled']) || empty($saved) || !is_array($menu)) return;
 
-    if (empty($wl['enabled']) || empty($saved) || !is_array($menu)) {
-        return;
-    }
-
+    // Wstrzyknij brakujące custom separatory
     $tmp_pos = 9000;
     foreach ($saved as $slug) {
-        if (strpos($slug, 'separator-custom-') !== 0) {
-            continue;
-        }
-
+        if (strpos($slug, 'separator-custom-') !== 0) continue;
         $exists = false;
         foreach ($menu as $item) {
-            if (($item[2] ?? '') === $slug) {
-                $exists = true;
-                break;
-            }
+            if (($item[2] ?? '') === $slug) { $exists = true; break; }
         }
-
-        if (!$exists) {
-            $menu[$tmp_pos++] = ['', 'read', $slug, '', 'wp-menu-separator', '', ''];
-        }
+        if (!$exists) $menu[$tmp_pos++] = ['', 'read', $slug, '', 'wp-menu-separator', '', ''];
     }
 
+    // Zbuduj mapę slug → item
     $map = [];
     foreach ($menu as $pos => $item) {
         $slug = $item[2] ?? '';
-        if ($slug !== '') {
-            $map[$slug] = [$pos, $item];
-        }
+        if ($slug !== '') $map[$slug] = [$pos, $item];
     }
 
+    // Przebuduj wg saved
     $new_menu = [];
     $new_pos  = 1;
-
     foreach ($saved as $slug) {
         if (isset($map[$slug])) {
             $new_menu[$new_pos] = $map[$slug][1];
@@ -601,12 +418,10 @@ add_action('admin_menu', function () {
             $new_pos += 2;
         }
     }
-
-    foreach ($map as $slug => $data) {
-        $new_menu[$new_pos] = $data[1];
+    foreach ($map as [$old_pos, $item]) {
+        $new_menu[$new_pos] = $item;
         $new_pos += 2;
     }
-
     $menu = $new_menu;
 }, 9999);
 
@@ -615,15 +430,8 @@ add_action('admin_menu', function () {
 // -------------------------------------------------------------------------
 add_filter('admin_footer_text', function ($text) {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled'])) {
-        return $text;
-    }
-
-    if (!empty($wl['hide_footer_wp'])) {
-        return !empty($wl['footer_text']) ? wp_kses_post($wl['footer_text']) : '';
-    }
-
+    if (empty($wl['enabled'])) return $text;
+    if (!empty($wl['hide_footer_wp'])) return !empty($wl['footer_text']) ? wp_kses_post($wl['footer_text']) : '';
     return $text;
 });
 
@@ -633,45 +441,38 @@ add_filter('update_footer', function ($text) {
 }, 11);
 
 // -------------------------------------------------------------------------
+// Podmiana nazwy "WordPress" → site_name (bez gettext — przez CSS + title)
+// -------------------------------------------------------------------------
+add_action('admin_head', function () {
+    $wl = evk_wl_get();
+    if (empty($wl['enabled']) || empty($wl['site_name'])) return;
+    $name = esc_js($wl['site_name']);
+    // Podmiana przez JS tylko raz przy DOMContentLoaded — nie spowalnia jak gettext
+    echo "<script>document.addEventListener('DOMContentLoaded',function(){";
+    echo "document.querySelectorAll('#footer-thankyou,#wp-admin-bar-wp-logo .ab-label').forEach(function(el){";
+    echo "el.innerHTML=el.innerHTML.replace(/WordPress/g,'" . $name . "');});";
+    echo "});</script>";
+});
+
+// -------------------------------------------------------------------------
 // Custom CSS + kolory (admin_head)
 // -------------------------------------------------------------------------
 add_action('admin_head', function () {
     $wl = evk_wl_get();
+    if (empty($wl['enabled'])) return;
 
-    if (empty($wl['enabled'])) {
-        return;
-    }
-
-    $css = '';
-
-    $css .= '#adminmenu,#adminmenu *{transition:none!important;animation:none!important;}';
+    $css = '#adminmenu,#adminmenu *{transition:none!important;animation:none!important;}';
 
     if (!empty($wl['logo_url'])) {
         $url   = esc_url($wl['logo_url']);
         $width = (int) $wl['logo_width'];
-
-        $css .= "#adminmenu::before{";
-        $css .= "content:'';";
-        $css .= "display:block;";
-        $css .= "width:{$width}px;";
-        $css .= "max-width:calc(100% - 16px);";
-        $css .= "height:60px;";
-        $css .= "margin:12px auto 8px;";
-        $css .= "background:url('{$url}') center/contain no-repeat;";
-        $css .= "}";
+        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:60px;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;}";
     }
 
     if (!empty($wl['color_primary'])) {
         $c   = esc_attr($wl['color_primary']);
         $rgb = evk_hex_to_rgb($wl['color_primary']);
-
-        $css .= ":root{";
-        $css .= "--wp-admin-theme-color:{$c}!important;";
-        $css .= "--wp-admin-theme-color--rgb:{$rgb}!important;";
-        $css .= "--wp-admin-theme-color-darker-10:color-mix(in srgb,{$c} 90%,#000 10%)!important;";
-        $css .= "--wp-admin-theme-color-darker-20:color-mix(in srgb,{$c} 80%,#000 20%)!important;";
-        $css .= "}";
-
+        $css .= ":root{--wp-admin-theme-color:{$c}!important;--wp-admin-theme-color--rgb:{$rgb}!important;--wp-admin-theme-color-darker-10:color-mix(in srgb,{$c} 90%,#000 10%)!important;--wp-admin-theme-color-darker-20:color-mix(in srgb,{$c} 80%,#000 20%)!important;}";
         $css .= ".wp-core-ui .button-primary{background:{$c}!important;border-color:{$c}!important;box-shadow:none!important;}";
         $css .= ".wp-core-ui .button-primary:hover,.wp-core-ui .button-primary:focus{background:color-mix(in srgb,{$c} 85%,#000)!important;border-color:color-mix(in srgb,{$c} 85%,#000)!important;}";
         $css .= "#wpcontent a:not(.button):not(.wp-block-button__link){color:{$c};}";
@@ -679,35 +480,28 @@ add_action('admin_head', function () {
     }
 
     if (!empty($wl['color_menu_bg'])) {
-        $bg = esc_attr($wl['color_menu_bg']);
-
-        $css .= "#adminmenu,#adminmenuback,#adminmenuwrap{background:{$bg}!important;}";
-
+        $bg     = esc_attr($wl['color_menu_bg']);
         $sub_bg = "color-mix(in srgb,{$bg} 75%,#000 25%)";
-        $css .= "#adminmenu .wp-submenu,#adminmenu .wp-submenu-wrap{background:{$sub_bg}!important;}";
-        $css .= "#adminmenu li.wp-has-current-submenu .wp-submenu,#adminmenu li:hover .wp-submenu{background:{$sub_bg}!important;}";
+        $css   .= "#adminmenu,#adminmenuback,#adminmenuwrap{background:{$bg}!important;}";
+        $css   .= "#adminmenu .wp-submenu,#adminmenu .wp-submenu-wrap{background:{$sub_bg}!important;}";
+        $css   .= "#adminmenu li.wp-has-current-submenu .wp-submenu,#adminmenu li:hover .wp-submenu{background:{$sub_bg}!important;}";
     }
 
     if (!empty($wl['color_menu_text'])) {
-        $text = esc_attr($wl['color_menu_text']);
-        $css .= "#adminmenu a.menu-top,#adminmenu .wp-menu-name{color:{$text}!important;}";
-        $css .= "#adminmenu .wp-submenu a{color:{$text}!important;opacity:.8;}";
+        $text  = esc_attr($wl['color_menu_text']);
+        $css  .= "#adminmenu a.menu-top,#adminmenu .wp-menu-name{color:{$text}!important;}";
+        $css  .= "#adminmenu .wp-submenu a{color:{$text}!important;opacity:.8;}";
     }
 
     if (!empty($wl['color_menu_icon'])) {
-        $icon = esc_attr($wl['color_menu_icon']);
-        $css .= "#adminmenu .wp-menu-image:before{color:{$icon}!important;}";
+        $css .= "#adminmenu .wp-menu-image:before{color:".esc_attr($wl['color_menu_icon'])."!important;}";
     }
 
-    $hbg_raw = !empty($wl['color_menu_hover'])
-        ? $wl['color_menu_hover']
-        : (!empty($wl['color_menu_bg']) ? $wl['color_menu_bg'] : '');
-
+    $hbg_raw = !empty($wl['color_menu_hover']) ? $wl['color_menu_hover'] : (!empty($wl['color_menu_bg']) ? $wl['color_menu_bg'] : '');
     if ($hbg_raw) {
         $hbg_set   = esc_attr($hbg_raw);
         $htxt      = !empty($wl['color_menu_hover_text']) ? esc_attr($wl['color_menu_hover_text']) : '#ffffff';
         $hbg_final = !empty($wl['color_menu_hover']) ? $hbg_set : "color-mix(in srgb,{$hbg_set} 78%,#000 22%)";
-
         $css .= "#adminmenu a:hover,#adminmenu li.menu-top:hover,#adminmenu li.opensub>a.menu-top,#adminmenu li>a.menu-top:focus{background:{$hbg_final}!important;color:{$htxt}!important;}";
         $css .= "#adminmenu li.menu-top:hover .wp-menu-name,#adminmenu li.opensub>a.menu-top .wp-menu-name{color:{$htxt}!important;}";
         $css .= "#adminmenu li:hover .wp-menu-image:before,#adminmenu li.opensub .wp-menu-image:before{color:{$htxt}!important;opacity:1;}";
@@ -717,49 +511,22 @@ add_action('admin_head', function () {
     if (!empty($wl['color_menu_active'])) {
         $abg  = esc_attr($wl['color_menu_active']);
         $atxt = !empty($wl['color_menu_active_text']) ? esc_attr($wl['color_menu_active_text']) : '#ffffff';
-
-        $css .= "#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu,";
-        $css .= "#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu:focus,";
-        $css .= "#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu:hover,";
-        $css .= ".folded #adminmenu .wp-has-current-submenu>a.wp-has-current-submenu,";
-        $css .= "#adminmenu a.current,";
-        $css .= "#adminmenu a.current:focus,";
-        $css .= "#adminmenu li.current>a.menu-top{background:{$abg}!important;color:{$atxt}!important;}";
-
+        $css .= "#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu,#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu:focus,#adminmenu .wp-has-current-submenu>a.wp-has-current-submenu:hover,.folded #adminmenu .wp-has-current-submenu>a.wp-has-current-submenu,#adminmenu a.current,#adminmenu a.current:focus,#adminmenu li.current>a.menu-top{background:{$abg}!important;color:{$atxt}!important;}";
         $css .= "#adminmenu .wp-has-current-submenu .wp-menu-image:before,#adminmenu li.current .wp-menu-image:before{color:{$atxt}!important;opacity:1!important;}";
         $css .= "#adminmenu .wp-has-current-submenu .wp-menu-name,#adminmenu li.current .wp-menu-name{color:{$atxt}!important;}";
         $css .= "#adminmenu .wp-submenu li.current>a,#adminmenu .wp-submenu li.current>a:hover{color:{$atxt}!important;font-weight:600;}";
     }
 
-    $badge_bg = !empty($wl['color_menu_badge'])
-        ? esc_attr($wl['color_menu_badge'])
-        : (!empty($wl['color_primary']) ? esc_attr($wl['color_primary']) : '');
-    $badge_tx = !empty($wl['color_menu_badge_text'])
-        ? esc_attr($wl['color_menu_badge_text'])
-        : '#ffffff';
-
+    $badge_bg = !empty($wl['color_menu_badge']) ? esc_attr($wl['color_menu_badge']) : (!empty($wl['color_primary']) ? esc_attr($wl['color_primary']) : '');
+    $badge_tx = !empty($wl['color_menu_badge_text']) ? esc_attr($wl['color_menu_badge_text']) : '#ffffff';
     if ($badge_bg) {
-        $css .= "#adminmenu .awaiting-mod,";
-        $css .= "#adminmenu .menu-counter,";
-        $css .= "#adminmenu .update-plugins,";
-        $css .= "#adminmenu .update-themes,";
-        $css .= "#adminmenu .update-count,";
-        $css .= "#adminmenu .plugin-count,";
-        $css .= "#adminmenu .theme-count,";
-        $css .= "#adminmenu .pending-count,";
-        $css .= "#adminmenu .wp-ui-notification,";
-        $css .= ".wp-ui-notification{background:{$badge_bg}!important;color:{$badge_tx}!important;}";
+        $css .= "#adminmenu .awaiting-mod,#adminmenu .menu-counter,#adminmenu .update-plugins,#adminmenu .update-themes,#adminmenu .update-count,#adminmenu .plugin-count,#adminmenu .theme-count,#adminmenu .pending-count,#adminmenu .wp-ui-notification,.wp-ui-notification{background:{$badge_bg}!important;color:{$badge_tx}!important;}";
     }
 
     if (!empty($wl['admin_bar_color'])) {
         $bar = esc_attr($wl['admin_bar_color']);
-        $hbg = !empty($wl['admin_bar_hover_color'])
-            ? esc_attr($wl['admin_bar_hover_color'])
-            : "color-mix(in srgb,{$bar} 80%,#000 20%)";
-        $sbg = !empty($wl['admin_bar_sub_color'])
-            ? esc_attr($wl['admin_bar_sub_color'])
-            : "color-mix(in srgb,{$bar} 85%,#000 15%)";
-
+        $hbg = !empty($wl['admin_bar_hover_color']) ? esc_attr($wl['admin_bar_hover_color']) : "color-mix(in srgb,{$bar} 80%,#000 20%)";
+        $sbg = !empty($wl['admin_bar_sub_color'])   ? esc_attr($wl['admin_bar_sub_color'])   : "color-mix(in srgb,{$bar} 85%,#000 15%)";
         $css .= "#wpadminbar{background:{$bar}!important;}";
         $css .= "#wpadminbar .ab-item,#wpadminbar a.ab-item,#wpadminbar .ab-icon{color:#eee!important;}";
         $css .= "#wpadminbar .ab-top-menu>li:hover>.ab-item,#wpadminbar .ab-top-menu>li.hover>.ab-item{background:{$hbg}!important;color:#fff!important;}";
@@ -769,25 +536,25 @@ add_action('admin_head', function () {
     }
 
     if (!empty($wl['color_content_bg'])) {
-        $bg = esc_attr($wl['color_content_bg']);
+        $bg   = esc_attr($wl['color_content_bg']);
         $css .= "#wpcontent,#wpbody,#wpbody-content{background:{$bg}!important;}";
     }
 
     if (!empty($wl['color_content_text'])) {
-        $fg = esc_attr($wl['color_content_text']);
+        $fg   = esc_attr($wl['color_content_text']);
         $css .= "#wpcontent,#wpbody{color:{$fg}!important;}";
         $css .= "#wpcontent h1,#wpcontent h2,#wpcontent h3,#wpcontent h4{color:{$fg}!important;}";
     }
 
     if (!empty($wl['color_link'])) {
-        $lc = esc_attr($wl['color_link']);
+        $lc   = esc_attr($wl['color_link']);
         $css .= "#wpcontent a:not(.button){color:{$lc}!important;}";
         $css .= "#wpcontent a:not(.button):hover{opacity:.8;}";
         $css .= "#wpadminbar #wp-admin-bar-site-name a,#wpadminbar #wp-admin-bar-site-name a.ab-item{color:#eee!important;}";
     }
 
     if (!empty($wl['color_notice_bg'])) {
-        $nb = esc_attr($wl['color_notice_bg']);
+        $nb   = esc_attr($wl['color_notice_bg']);
         $css .= ".notice,.notice-success,.notice-error,.notice-warning,.notice-info{background:{$nb}!important;border-color:rgba(0,0,0,.1)!important;}";
     }
 
@@ -799,15 +566,12 @@ add_action('admin_head', function () {
     if (!empty($bar_order)) {
         $css .= '#wpadminbar #wp-admin-bar-root-default{display:flex!important;align-items:stretch;}';
         $css .= '#wpadminbar #wp-admin-bar-root-default>li{float:none!important;height:32px;}';
-
         foreach ($bar_order as $node_id => $order) {
-            $css .= '#wp-admin-bar-' . esc_attr($node_id) . '{order:' . (int) $order . ';}';
+            $css .= '#wp-admin-bar-'.esc_attr($node_id).'{order:'.(int)$order.';}';
         }
     }
 
-    if ($css !== '') {
-        echo '<style id="evk-white-label">' . $css . '</style>';
-    }
+    if ($css !== '') echo '<style id="evk-white-label">'.$css.'</style>';
 }, 9999);
 
 // -------------------------------------------------------------------------
@@ -815,18 +579,11 @@ add_action('admin_head', function () {
 // -------------------------------------------------------------------------
 add_action('wp_head', function () {
     $wl = evk_wl_get();
-
-    if (empty($wl['enabled']) || empty($wl['admin_bar_color'])) {
-        return;
-    }
+    if (empty($wl['enabled']) || empty($wl['admin_bar_color'])) return;
 
     $bar = esc_attr($wl['admin_bar_color']);
-    $hbg = !empty($wl['admin_bar_hover_color'])
-        ? esc_attr($wl['admin_bar_hover_color'])
-        : "color-mix(in srgb,{$bar} 80%,#000 20%)";
-    $sbg = !empty($wl['admin_bar_sub_color'])
-        ? esc_attr($wl['admin_bar_sub_color'])
-        : "color-mix(in srgb,{$bar} 85%,#000 15%)";
+    $hbg = !empty($wl['admin_bar_hover_color']) ? esc_attr($wl['admin_bar_hover_color']) : "color-mix(in srgb,{$bar} 80%,#000 20%)";
+    $sbg = !empty($wl['admin_bar_sub_color'])   ? esc_attr($wl['admin_bar_sub_color'])   : "color-mix(in srgb,{$bar} 85%,#000 15%)";
 
     $css  = "#wpadminbar,#wpadminbar .quicklinks{background:{$bar}!important;}";
     $css .= "#wpadminbar .ab-item,#wpadminbar .ab-icon,#wpadminbar a.ab-item{color:#eee!important;}";
@@ -836,5 +593,5 @@ add_action('wp_head', function () {
     $css .= "#wpadminbar .ab-submenu .ab-item{color:#ddd!important;}";
     $css .= "#wpadminbar .ab-submenu .ab-item:hover{background:color-mix(in srgb,{$sbg} 80%,#000 20%)!important;color:#fff!important;}";
 
-    echo '<style id="evk-wl-frontend">' . $css . '</style>';
+    echo '<style id="evk-wl-frontend">'.$css.'</style>';
 }, 9999);
