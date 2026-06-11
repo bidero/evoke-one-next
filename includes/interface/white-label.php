@@ -89,6 +89,16 @@ function evk_wl_sanitize_order(array $raw): array {
     return $clean;
 }
 
+function evk_wl_sanitize_href(string $href): string {
+    $href = trim($href);
+    if ($href === '' || $href === '#') return '#';
+    // Relative URL (zaczyna się od /) — sanitize bez wymuszania protokołu
+    if (str_starts_with($href, '/')) return sanitize_text_field($href);
+    // Absolute URL
+    $clean = esc_url_raw($href);
+    return $clean !== '' ? $clean : '#';
+}
+
 function evk_hex_to_rgb(string $hex): string {
     $hex = ltrim($hex, '#');
     if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
@@ -174,7 +184,7 @@ add_action('admin_init', function () {
                         $clean_items[] = [
                             'id'     => sanitize_key($item['id'] ?? '') ?: 'evk-' . substr(md5(uniqid('', true)), 0, 8),
                             'title'  => sanitize_text_field($title),
-                            'href'   => !empty($item['href']) ? esc_url_raw($item['href']) : '',
+                            'href'   => !empty($item['href']) ? evk_wl_sanitize_href($item['href']) : '',
                             'icon'   => sanitize_html_class($item['icon'] ?? ''),
                             'parent' => sanitize_key($item['parent'] ?? ''),
                             'target' => (($item['target'] ?? '') === '_blank') ? '_blank' : '',
@@ -288,7 +298,7 @@ add_action('wp_ajax_evk_wl_save_bar_items', function () {
         $clean[] = [
             'id'     => sanitize_key($item['id'] ?? '') ?: 'evk-' . substr(md5(uniqid('', true)), 0, 8),
             'title'  => sanitize_text_field($title),
-            'href'   => !empty($item['href']) ? esc_url_raw($item['href']) : '',
+            'href'   => !empty($item['href']) ? evk_wl_sanitize_href($item['href']) : '',
             'icon'   => sanitize_html_class($item['icon'] ?? ''),
             'parent' => sanitize_key($item['parent'] ?? ''),
             'target' => (($item['target'] ?? '') === '_blank') ? '_blank' : '',

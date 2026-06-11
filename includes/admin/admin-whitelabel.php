@@ -566,7 +566,7 @@ function makeRow(item) {
         ? '<input type="text" class="evk-f-id" placeholder="ID (auto)" title="Używany jako Parent ID dla elementów podmenu" style="width:140px;flex-shrink:0;" value="'+esc(item.id||'')+'">' : '';
 
     var hrefField = isParent ? '' :
-        '<input type="url" class="evk-f-href" placeholder="URL" style="flex:1;" value="'+esc(item.href||'')+'">';
+        '<input type="text" class="evk-f-href" placeholder="/strona lub https://..." style="flex:1;" value="'+esc(item.href||'')+'">';
 
     var parentField = isParent ? '' :
         '<input type="text" class="evk-f-parent" placeholder="Parent ID" title="Zostaw puste = samodzielny element" style="width:120px;flex-shrink:0;" value="'+esc(item.parent||'')+'">';
