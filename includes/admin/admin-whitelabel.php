@@ -6,30 +6,43 @@ $wl        = evk_wl_get();
 $bar_items = evk_wl_bar_items_get();
 $nonce_bar = wp_create_nonce('evoke-one-wl-bar');
 
-$bar_nodes = [
-    'wp-logo'     => 'Logo WordPress',
-    'site-name'   => 'Nazwa witryny',
-    'updates'     => 'Aktualizacje',
-    'comments'    => 'Komentarze',
-    'new-content' => '+ Dodaj nowy',
-    'my-account'  => 'Moje konto',
-    'search'      => 'Szukaj',
-    'customize'   => 'Dostosuj',
-    'edit'        => 'Edytuj stronę',
+// Kompletna lista węzłów WP admin bara (WP 4.x – 7.x, lewa + prawa strona)
+$bar_nodes_builtin = [
+    // Lewa strona
+    'wp-logo'           => 'Logo WordPress',
+    'site-name'         => 'Nazwa witryny',
+    'updates'           => 'Aktualizacje',
+    'comments'          => 'Komentarze',
+    'new-content'       => '+ Dodaj nowy',
+    // Prawa strona (secondary)
+    'my-account'        => 'Moje konto',
+    'user-actions'      => 'Akcje użytkownika (WP 6.x)',
+    'search'            => 'Szukaj',
+    'customize'         => 'Dostosuj (WP ≤6.7)',
+    'edit'              => 'Edytuj stronę',
+    'appearance'        => 'Wygląd (WP 7.0+)',
+    'recovery-mode'     => 'Tryb odzyskiwania',
+    'logout'            => 'Wyloguj',
 ];
+// Własne węzły dodane przez użytkownika
+$bar_nodes_extra = is_array($wl['bar_nodes_extra'] ?? null) ? $wl['bar_nodes_extra'] : [];
+$bar_nodes = array_merge($bar_nodes_builtin, $bar_nodes_extra);
 
-$sidebar_items = [
-    'index.php'               => 'Kokpit',
-    'edit.php'                => 'Wpisy',
-    'upload.php'              => 'Media',
-    'edit.php?post_type=page' => 'Strony',
-    'edit-comments.php'       => 'Komentarze',
-    'themes.php'              => 'Wygląd',
-    'plugins.php'             => 'Wtyczki',
-    'users.php'               => 'Użytkownicy',
-    'tools.php'               => 'Narzędzia',
-    'options-general.php'     => 'Ustawienia',
-];
+// Sidebar items — pobierane dynamicznie z $menu (rzeczywiste pozycje WP)
+global $menu;
+$sidebar_labels_saved = is_array($wl['sidebar_labels'] ?? null) ? $wl['sidebar_labels'] : [];
+$sidebar_items = [];
+foreach ((array) $menu as $item) {
+    $slug   = $item[2] ?? '';
+    $raw    = preg_replace('/<span[^>]*>.*<\/span>/Us', '', $item[0] ?? '');
+    $label  = trim(strip_tags($raw));
+    $is_sep = (strpos($slug, 'separator') === 0 || ($item[4] ?? '') === 'wp-menu-separator');
+    if ($is_sep || $slug === '') continue;
+    // Własna nazwa jeśli ustawiona
+    $sidebar_items[$slug] = isset($sidebar_labels_saved[$slug]) && $sidebar_labels_saved[$slug] !== ''
+        ? $sidebar_labels_saved[$slug]
+        : ($label ?: $slug);
+}
 
 $bar_order = $wl['bar_nodes_order'] ?? [];
 ?>
@@ -254,6 +267,51 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     </div>
 </div>
 
+<!-- WĘZŁY — własne (dodawanie własnych node ID) -->
+<div style="margin-top:16px;">
+    <p class="evo-section-title">Pasek górny — własne węzły do ukrywania/kolejności</p>
+    <p class="evo-desc" style="margin-bottom:10px;">
+        Dodaj ID węzłów spoza listy (np. z wtyczek). Wpisz ID i etykietę — pojawią się w sekcjach widoczności i kolejności powyżej/poniżej.
+    </p>
+    <div id="evk-bar-nodes-extra" style="max-width:560px;">
+    <?php foreach ($bar_nodes_extra as $nid => $nlbl): ?>
+        <div class="evk-extra-node-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+            <input type="text" name="evk_white_label[bar_nodes_extra][<?php echo esc_attr($nid); ?>]"
+                   value="<?php echo esc_attr($nlbl); ?>"
+                   placeholder="Etykieta" style="flex:1;">
+            <code style="width:180px;padding:4px 8px;background:var(--evo-surface,#f8f8f8);border:1px solid var(--evo-border,#e0e0e0);border-radius:3px;font-size:12px;"><?php echo esc_html($nid); ?></code>
+            <input type="hidden" name="evk_white_label[bar_nodes_extra][<?php echo esc_attr($nid); ?>]" value="<?php echo esc_attr($nlbl); ?>">
+            <button type="button" class="button evk-remove-extra-node" style="flex-shrink:0;color:#b32d2e;">✕</button>
+        </div>
+    <?php endforeach; ?>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center;max-width:560px;">
+        <input type="text" id="evk-new-node-id"  placeholder="node-id (np. my-plugin-node)" style="flex:1;font-family:monospace;font-size:12px;">
+        <input type="text" id="evk-new-node-lbl" placeholder="Etykieta" style="width:180px;">
+        <button type="button" class="button" id="evk-add-node-btn">+ Dodaj</button>
+    </div>
+</div>
+
+<script>
+(function($){
+    $('#evk-add-node-btn').on('click', function(){
+        var id  = $('#evk-new-node-id').val().trim().replace(/[^a-z0-9\-_]/gi,'');
+        var lbl = $('#evk-new-node-lbl').val().trim();
+        if (!id || !lbl) return;
+        var row = $('<div class="evk-extra-node-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">'
+            + '<input type="text" name="evk_white_label[bar_nodes_extra]['+id+']" value="'+$('<span>').text(lbl).html()+'" placeholder="Etykieta" style="flex:1;">'
+            + '<code style="width:180px;padding:4px 8px;background:var(--evo-surface,#f8f8f8);border:1px solid var(--evo-border,#e0e0e0);border-radius:3px;font-size:12px;">'+$('<span>').text(id).html()+'</code>'
+            + '<button type="button" class="button evk-remove-extra-node" style="flex-shrink:0;color:#b32d2e;">✕</button>'
+            + '</div>');
+        $('#evk-bar-nodes-extra').append(row);
+        $('#evk-new-node-id,#evk-new-node-lbl').val('');
+    });
+    $(document).on('click','.evk-remove-extra-node',function(){
+        $(this).closest('.evk-extra-node-row').remove();
+    });
+})(jQuery);
+</script>
+
 <!-- WĘZŁY — kolejność (CSS order / flexbox) -->
 <div style="margin-top:24px;">
     <p class="evo-section-title">Pasek górny — kolejność węzłów</p>
@@ -283,14 +341,23 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--evo-border,#e0e0e0);">
     <p class="evo-section-title">Menu boczne — ukryj pozycje</p>
     <p class="evo-desc" style="margin-bottom:12px;">Ukryte dla użytkowników <strong>innych niż administrator</strong>.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr;gap:4px;max-width:640px;">
     <?php foreach ($sidebar_items as $slug => $label):
-        $checked = in_array($slug, (array)($wl['sidebar_hidden'] ?? []), true);
+        $checked      = in_array($slug, (array)($wl['sidebar_hidden'] ?? []), true);
+        $saved_label  = $sidebar_labels_saved[$slug] ?? '';
     ?>
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:7px 10px;background:var(--evo-surface,#f8f8f8);border-radius:4px;border:1px solid <?php echo $checked ? '#2271b1' : 'transparent'; ?>">
-        <input type="checkbox" name="evk_white_label[sidebar_hidden][]" value="<?php echo esc_attr($slug); ?>" <?php checked($checked); ?>>
-        <?php echo esc_html($label); ?>
-    </label>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--evo-surface,#f8f8f8);border-radius:4px;border:1px solid <?php echo $checked ? '#2271b1' : 'transparent'; ?>">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0;flex:1;">
+            <input type="checkbox" name="evk_white_label[sidebar_hidden][]" value="<?php echo esc_attr($slug); ?>" <?php checked($checked); ?>>
+            <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></span>
+        </label>
+        <input type="text"
+               name="evk_white_label[sidebar_labels][<?php echo esc_attr($slug); ?>]"
+               value="<?php echo esc_attr($saved_label); ?>"
+               placeholder="Własna nazwa…"
+               style="width:180px;font-size:12px;flex-shrink:0;"
+               title="Zostaw puste = oryginalna nazwa">
+    </div>
     <?php endforeach; ?>
     </div>
     <p style="font-size:12px;color:#666;margin-top:8px;">

@@ -46,6 +46,8 @@ function evk_wl_defaults(): array {
         'color_submenu_current_bg' => '',
         'color_submenu_current_tx' => '',
         'custom_css_admin'         => '',
+        'bar_nodes_extra'          => [],  // ['node-id' => 'Etykieta']
+        'sidebar_labels'           => [],  // ['slug' => 'Własna nazwa']
         'bar_nodes_hidden'         => [],
         'sidebar_hidden'           => [],
         'bar_nodes_order'          => [],
@@ -55,6 +57,8 @@ function evk_wl_defaults(): array {
 
 function evk_wl_normalize(array $data): array {
     $result = array_merge(evk_wl_defaults(), $data);
+    if (!is_array($result['bar_nodes_extra']))    $result['bar_nodes_extra']    = [];
+    if (!is_array($result['sidebar_labels']))     $result['sidebar_labels']     = [];
     if (!is_array($result['bar_nodes_hidden']))   $result['bar_nodes_hidden']   = [];
     if (!is_array($result['sidebar_hidden']))     $result['sidebar_hidden']     = [];
     if (!is_array($result['bar_nodes_order']))    $result['bar_nodes_order']    = [];
@@ -133,15 +137,13 @@ add_action('admin_init', function () {
                 return $current[$key] ?? $fallback;
             };
 
-            $allowed_nodes = ['wp-logo','site-name','updates','comments','new-content','my-account','search','customize','edit'];
-
             $bar_nodes_hidden = $current['bar_nodes_hidden'];
             if (array_key_exists('bar_nodes_hidden', $input)) {
                 $bar_nodes_hidden = [];
                 if (is_array($input['bar_nodes_hidden'])) {
                     foreach ($input['bar_nodes_hidden'] as $node) {
-                        $node = sanitize_text_field((string) $node);
-                        if (in_array($node, $allowed_nodes, true)) $bar_nodes_hidden[] = $node;
+                        $node = sanitize_key((string) $node);
+                        if ($node !== '') $bar_nodes_hidden[] = $node;
                     }
                 }
             }
@@ -235,6 +237,30 @@ add_action('admin_init', function () {
                 'color_submenu_current_bg' => $color('color_submenu_current_bg'),
                 'color_submenu_current_tx' => $color('color_submenu_current_tx'),
                 'custom_css_admin'       => array_key_exists('custom_css_admin', $input)   ? trim(wp_unslash((string) $input['custom_css_admin']))      : $current['custom_css_admin'],
+                'bar_nodes_extra'        => (function() use ($input, $current) {
+                    if (!array_key_exists('bar_nodes_extra', $input)) return $current['bar_nodes_extra'];
+                    $extra = [];
+                    if (is_array($input['bar_nodes_extra'])) {
+                        foreach ($input['bar_nodes_extra'] as $nid => $lbl) {
+                            $nid = sanitize_key((string) $nid);
+                            $lbl = sanitize_text_field((string) $lbl);
+                            if ($nid !== '' && $lbl !== '') $extra[$nid] = $lbl;
+                        }
+                    }
+                    return $extra;
+                })(),
+                'sidebar_labels'         => (function() use ($input, $current) {
+                    if (!array_key_exists('sidebar_labels', $input)) return $current['sidebar_labels'];
+                    $labels = [];
+                    if (is_array($input['sidebar_labels'])) {
+                        foreach ($input['sidebar_labels'] as $slug => $lbl) {
+                            $slug = evk_wl_sanitize_menu_slug((string) $slug);
+                            $lbl  = sanitize_text_field((string) $lbl);
+                            if ($slug !== '') $labels[$slug] = $lbl;
+                        }
+                    }
+                    return $labels;
+                })(),
                 'bar_nodes_hidden'       => array_values(array_unique($bar_nodes_hidden)),
                 'sidebar_hidden'         => array_values(array_unique($sidebar_hidden)),
                 'bar_nodes_order'        => $bar_nodes_order,
@@ -406,6 +432,21 @@ add_action('wp_before_admin_bar_render', function () {
 // -------------------------------------------------------------------------
 // Menu boczne: ukrywanie dla non-adminów
 // -------------------------------------------------------------------------
+// Zmiana nazw pozycji menu bocznego
+add_action('admin_menu', function () {
+    global $menu;
+    $wl     = evk_wl_get();
+    $labels = $wl['sidebar_labels'] ?? [];
+    if (empty($wl['enabled']) || empty($labels) || !is_array($menu)) return;
+    foreach ($menu as &$item) {
+        $slug = $item[2] ?? '';
+        if (isset($labels[$slug]) && $labels[$slug] !== '') {
+            $item[0] = esc_html($labels[$slug]);
+        }
+    }
+    unset($item);
+}, 998);
+
 add_action('admin_menu', function () {
     $wl = evk_wl_get();
     if (empty($wl['enabled']) || current_user_can('administrator')) return;
