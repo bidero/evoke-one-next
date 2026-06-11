@@ -592,8 +592,7 @@ add_action('admin_head', function () {
                 if (!$url) continue;
                 // Preload tylko woff2 — najwyższy priorytet w nowoczesnych przeglądarkach
                 if ($format === 'woff2') {
-                    echo "<link rel="preload" href="{$url}" as="font" type="font/woff2" crossorigin="anonymous">
-";
+                    echo '<link rel="preload" href="' . esc_url($url) . '" as="font" type="font/woff2" crossorigin="anonymous">' . "\n";
                 }
                 break 2; // wystarczy jeden plik
             }
