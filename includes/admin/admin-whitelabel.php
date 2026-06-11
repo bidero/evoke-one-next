@@ -105,6 +105,17 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         <input type="text" name="evk_white_label[footer_text]" value="<?php echo esc_attr($wl['footer_text']); ?>" placeholder="Wykonano z ❤ przez Evoke Design">
     </div>
 
+    <p class="evo-section-title">Czcionka admina</p>
+    <div class="evo-field">
+        <label>URL czcionki Google Fonts / @import</label>
+        <input type="url" name="evk_white_label[admin_font_url]" value="<?php echo esc_attr($wl['admin_font_url']); ?>" placeholder="https://fonts.googleapis.com/css2?family=Inter...">
+        <p class="evo-desc" style="margin:4px 0 0;">Wklej link z Google Fonts (zakładka <em>@import</em> → URL między <code>url(...)</code>).</p>
+    </div>
+    <div class="evo-field">
+        <label>Nazwa rodziny czcionki (font-family)</label>
+        <input type="text" name="evk_white_label[admin_font_family]" value="<?php echo esc_attr($wl['admin_font_family']); ?>" placeholder="Inter">
+    </div>
+
     <p class="evo-section-title">Pasek górny — wygląd</p>
     <div class="evo-field">
         <label>Tytuł w pasku (zastępuje nazwę witryny)</label>
@@ -113,6 +124,10 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
     <div class="evo-field">
         <label>Kolor tła paska górnego</label>
         <input type="color" data-field="admin_bar_color" data-saved="<?php echo esc_attr($wl['admin_bar_color'] ?? ''); ?>" name="evk_white_label[admin_bar_color]" value="<?php echo esc_attr($wl['admin_bar_color'] ?: '#23282d'); ?>">
+    </div>
+    <div class="evo-field">
+        <label>Kolor linków/ikon paska (hover &amp; focus)</label>
+        <input type="color" data-field="color_admin_bar_link" data-saved="<?php echo esc_attr($wl['color_admin_bar_link'] ?? ''); ?>" name="evk_white_label[color_admin_bar_link]" value="<?php echo esc_attr($wl['color_admin_bar_link'] ?: '#00b9eb'); ?>">
     </div>
 
     <p class="evo-section-title">Ogólne — ukryj elementy</p>
@@ -188,6 +203,16 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
                    value="<?php echo esc_attr($wl['color_menu_badge_text'] ?: '#ffffff'); ?>">
         </div>
 
+    </div>
+
+    <p class="evo-section-title" style="margin-top:16px;">Kolory — aktywna pozycja podmenu</p>
+    <div class="evk-grid-colors">
+        <div class="evo-field" style="margin:0;"><label style="font-size:12px;">Tło aktywnej poz. podmenu</label>
+            <input type="color" data-field="color_submenu_current_bg" data-saved="<?php echo esc_attr($wl['color_submenu_current_bg'] ?? ''); ?>" name="evk_white_label[color_submenu_current_bg]" value="<?php echo esc_attr($wl['color_submenu_current_bg'] ?: '#2271b1'); ?>">
+        </div>
+        <div class="evo-field" style="margin:0;"><label style="font-size:12px;">Tekst aktywnej poz. podmenu</label>
+            <input type="color" data-field="color_submenu_current_tx" data-saved="<?php echo esc_attr($wl['color_submenu_current_tx'] ?? ''); ?>" name="evk_white_label[color_submenu_current_tx]" value="<?php echo esc_attr($wl['color_submenu_current_tx'] ?: '#ffffff'); ?>">
+        </div>
     </div>
 
     <p class="evo-section-title" style="margin-top:16px;">Kolory — sekcja główna</p>

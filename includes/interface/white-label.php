@@ -40,6 +40,11 @@ function evk_wl_defaults(): array {
         'hide_help_tab'            => 1,
         'hide_screen_opts'         => 0,
         'hide_footer_wp'           => 1,
+        'admin_font_url'           => '',
+        'admin_font_family'        => '',
+        'color_admin_bar_link'     => '',
+        'color_submenu_current_bg' => '',
+        'color_submenu_current_tx' => '',
         'custom_css_admin'         => '',
         'bar_nodes_hidden'         => [],
         'sidebar_hidden'           => [],
@@ -224,6 +229,11 @@ add_action('admin_init', function () {
                 'color_content_text'     => $color('color_content_text'),
                 'color_link'             => $color('color_link'),
                 'color_notice_bg'        => $color('color_notice_bg'),
+                'admin_font_url'         => array_key_exists('admin_font_url', $input)      ? esc_url_raw($input['admin_font_url'])                      : $current['admin_font_url'],
+                'admin_font_family'      => array_key_exists('admin_font_family', $input)   ? sanitize_text_field($input['admin_font_family'])            : $current['admin_font_family'],
+                'color_admin_bar_link'   => $color('color_admin_bar_link'),
+                'color_submenu_current_bg' => $color('color_submenu_current_bg'),
+                'color_submenu_current_tx' => $color('color_submenu_current_tx'),
                 'custom_css_admin'       => array_key_exists('custom_css_admin', $input)   ? trim(wp_unslash((string) $input['custom_css_admin']))      : $current['custom_css_admin'],
                 'bar_nodes_hidden'       => array_values(array_unique($bar_nodes_hidden)),
                 'sidebar_hidden'         => array_values(array_unique($sidebar_hidden)),
@@ -506,7 +516,7 @@ add_action('admin_head', function () {
     if (!empty($wl['logo_url'])) {
         $url   = esc_url($wl['logo_url']);
         $width = (int) $wl['logo_width'];
-        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:auto;aspect-ratio:auto;min-height:32px;max-height:80px;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;background-size:contain;}";
+        $css .= "#adminmenu::before{content:'';display:block;width:{$width}px;max-width:calc(100% - 16px);height:auto;margin:12px auto 8px;background:url('{$url}') center/contain no-repeat;}";
     }
 
     if (!empty($wl['color_primary'])) {
@@ -601,6 +611,61 @@ add_action('admin_head', function () {
         $css .= ".notice,.notice-success,.notice-error,.notice-warning,.notice-info{background:{$nb}!important;border-color:rgba(0,0,0,.1)!important;}";
     }
 
+    if (!empty($wl['admin_font_url']) && !empty($wl['admin_font_family'])) {
+        $fu  = esc_url($wl['admin_font_url']);
+        $ff  = esc_attr($wl['admin_font_family']);
+        $css .= "@import url('{$fu}');";
+        $css .= "#wpcontent,#adminmenu,#wpadminbar,body.wp-admin{font-family:{$ff},sans-serif!important;}";
+    }
+
+    if (!empty($wl['color_admin_bar_link'])) {
+        $abl = esc_attr($wl['color_admin_bar_link']);
+        $css .= "#wpadminbar .quicklinks .ab-sub-wrapper .menupop.hover>a,"
+              . "#wpadminbar .quicklinks .menupop ul li a:focus,"
+              . "#wpadminbar .quicklinks .menupop ul li a:focus strong,"
+              . "#wpadminbar .quicklinks .menupop ul li a:hover,"
+              . "#wpadminbar .quicklinks .menupop ul li a:hover strong,"
+              . "#wpadminbar .quicklinks .menupop.hover ul li a:focus,"
+              . "#wpadminbar .quicklinks .menupop.hover ul li a:hover,"
+              . "#wpadminbar li #adminbarsearch.adminbar-focused:before,"
+              . "#wpadminbar li .ab-item:focus .ab-icon:before,"
+              . "#wpadminbar li .ab-item:focus:before,"
+              . "#wpadminbar li a:focus .ab-icon:before,"
+              . "#wpadminbar li.hover .ab-icon:before,"
+              . "#wpadminbar li.hover .ab-item:before,"
+              . "#wpadminbar li:hover #adminbarsearch:before,"
+              . "#wpadminbar li:hover .ab-icon:before,"
+              . "#wpadminbar li:hover .ab-item:before,"
+              . "#wpadminbar.nojs .quicklinks .menupop:hover ul li a:focus,"
+              . "#wpadminbar.nojs .quicklinks .menupop:hover ul li a:hover"
+              . "{color:{$abl}!important;}";
+        $css .= "#wpadminbar:not(.mobile)>#wp-toolbar a:focus span.ab-label,"
+              . "#wpadminbar:not(.mobile)>#wp-toolbar li.hover span.ab-label,"
+              . "#wpadminbar:not(.mobile)>#wp-toolbar li:hover span.ab-label"
+              . "{color:{$abl}!important;}";
+        $css .= "#wpadminbar .ab-top-menu>li.hover>.ab-item,"
+              . "#wpadminbar.nojq .quicklinks .ab-top-menu>li>.ab-item:focus,"
+              . "#wpadminbar:not(.mobile) .ab-top-menu>li:hover>.ab-item,"
+              . "#wpadminbar:not(.mobile) .ab-top-menu>li>.ab-item:focus"
+              . "{color:{$abl}!important;}";
+    }
+
+    if (!empty($wl['color_admin_bar_link'])) {
+        // Aplikowane też przez wp_head — patrz niżej
+    }
+
+    if (!empty($wl['color_submenu_current_bg'])) {
+        $scbg = esc_attr($wl['color_submenu_current_bg']);
+        $sctx = !empty($wl['color_submenu_current_tx']) ? esc_attr($wl['color_submenu_current_tx']) : '#ffffff';
+        $css .= "#adminmenu .opensub .wp-submenu li.current a,"
+              . "#adminmenu .wp-submenu li.current,"
+              . "#adminmenu .wp-submenu li.current a,"
+              . "#adminmenu .wp-submenu li.current a:focus,"
+              . "#adminmenu .wp-submenu li.current a:hover,"
+              . "#adminmenu a.wp-has-current-submenu:focus+.wp-submenu li.current a"
+              . "{background:{$scbg}!important;color:{$sctx}!important;}";
+    }
+
     if (!empty($wl['custom_css_admin'])) {
         $css .= "\n" . $wl['custom_css_admin'];
     }
@@ -635,6 +700,18 @@ add_action('wp_head', function () {
     $css .= "#wpadminbar .menupop .ab-sub-wrapper{background:{$sbg}!important;}";
     $css .= "#wpadminbar .ab-submenu .ab-item{color:#ddd!important;}";
     $css .= "#wpadminbar .ab-submenu .ab-item:hover{background:color-mix(in srgb,{$sbg} 80%,#000 20%)!important;color:#fff!important;}";
+    if (!empty($wl['color_admin_bar_link'])) {
+        $abl = esc_attr($wl['color_admin_bar_link']);
+        $css .= "#wpadminbar .quicklinks .menupop ul li a:hover,"
+              . "#wpadminbar .quicklinks .menupop ul li a:focus,"
+              . "#wpadminbar li:hover .ab-icon:before,"
+              . "#wpadminbar li:hover .ab-item:before,"
+              . "#wpadminbar li.hover .ab-icon:before,"
+              . "#wpadminbar li.hover .ab-item:before,"
+              . "#wpadminbar:not(.mobile) .ab-top-menu>li:hover>.ab-item,"
+              . "#wpadminbar:not(.mobile)>#wp-toolbar li:hover span.ab-label"
+              . "{color:{$abl}!important;}";
+    }
 
     echo '<style id="evk-wl-frontend">'.$css.'</style>';
 }, 9999);
