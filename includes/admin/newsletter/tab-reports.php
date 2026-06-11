@@ -36,15 +36,38 @@ if ($campaign_id) {
     $ll = evk_nl_table('logs');
     $qq = evk_nl_table('queue');
 
-    // Wysłane per godzina — z queue, status sent/opened/clicked (spójne ze statystykami)
-    // Fallback: jeśli sent_at NULL użyj updated_at lub created_at
+    // Wysłane per godzina — priorytety:
+    // 1. queue.sent_at (jeśli wypełniony)
+    // 2. logs event='sent' created_at (fallback gdy sent_at=NULL)
     $sent_rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT DATE_FORMAT(COALESCE(sent_at, updated_at, created_at),'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
-         FROM $qq WHERE campaign_id=%d AND status IN ('sent','opened','clicked')
+        "SELECT DATE_FORMAT(sent_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(*) as cnt
+         FROM $qq WHERE campaign_id=%d AND sent_at IS NOT NULL
+         AND status IN ('sent','opened','clicked')
          GROUP BY hour ORDER BY hour ASC", $campaign_id
     ), ARRAY_A) ?: [];
     foreach ($sent_rows as $r) {
         if ($r['hour']) $timeline_data[$r['hour']]['sent'] = (int) $r['cnt'];
+    }
+    // Fallback: jeśli żadne sent_at nie jest wypełnione — użyj logs event='sent'
+    if (empty(array_filter(array_column($timeline_data, 'sent')))) {
+        $sent_log_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT DATE_FORMAT(created_at,'%%Y-%%m-%%d %%H:00') as hour, COUNT(DISTINCT subscriber_id) as cnt
+             FROM $ll WHERE campaign_id=%d AND event='sent'
+             GROUP BY hour ORDER BY hour ASC", $campaign_id
+        ), ARRAY_A) ?: [];
+        foreach ($sent_log_rows as $r) {
+            if ($r['hour']) $timeline_data[$r['hour']]['sent'] = (int) $r['cnt'];
+        }
+    }
+    // Jeśli nadal brak (brak logów 'sent') — wstaw całość jako jeden punkt przy pierwszym dostępnym zdarzeniu
+    if (empty(array_filter(array_column($timeline_data, 'sent')))) {
+        $total_sent = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $qq WHERE campaign_id=%d AND status IN ('sent','opened','clicked')", $campaign_id
+        ));
+        if ($total_sent > 0 && !empty($timeline_data)) {
+            $first_hour = array_key_first($timeline_data);
+            $timeline_data[$first_hour]['sent'] = $total_sent;
+        }
     }
 
     // Otwarte/kliknięte per godzina — unikalne subscriber_id
