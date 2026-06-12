@@ -135,7 +135,7 @@ function evk_og_render_meta_box(WP_Post $post): void {
     }
 
     // Link do ustawień
-    $settings_url = admin_url('options-general.php?page=evoke-one&tab=og');
+    $settings_url = admin_url('options-general.php?page=evoke-one&tab=strona&sub=og');
     echo '<p style="font-size:11px;color:#999;margin-top:8px;"><a href="' . esc_url($settings_url) . '">Ustawienia generatora OG ↗</a></p>';
 }
 
