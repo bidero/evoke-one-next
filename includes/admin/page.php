@@ -141,7 +141,7 @@ function evoke_one_render_settings(): void {
 
     ?>
     <div class="wrap evo-wrap">
-        <div class="evo-layout">
+        <div class="evo-layout" id="evo-layout">
 
             <!-- SIDEBAR -->
             <aside class="evo-sidebar">
