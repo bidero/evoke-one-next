@@ -915,29 +915,30 @@ add_action('admin_head', function () {
 
     $bar_order = $wl['bar_nodes_order'] ?? [];
     if (!empty($bar_order)) {
-        // top-secondary musi być w DOM przed root-default LUB float:right ustawiony zanim root-default się wyrenderuje.
-        // Strategia: top-secondary float:right + flex wewnętrznie; root-default overflow:hidden + flex wewnętrznie.
-        // overflow:hidden na root-default tworzy BFC który nie wchodzi pod float — to natywny CSS trick.
+        // top-secondary jest w DOM PO root-default — float:right nie działa gdy poprzedni element jest blokiem/flexem.
+        // Rozwiązanie: position:absolute right:0 na top-secondary + padding-right na toolbar żeby left nie zachodził pod right.
+        $css .= '#wpadminbar #wp-toolbar{position:relative!important;}';
         $css .= '#wpadminbar #wp-admin-bar-top-secondary{'
-              . 'float:right!important;'
+              . 'position:absolute!important;'
+              . 'right:0!important;'
+              . 'top:0!important;'
+              . 'height:32px!important;'
               . 'display:flex!important;'
               . 'align-items:stretch!important;'
               . 'flex-wrap:nowrap!important;'
-              . 'white-space:nowrap!important;'
+              . 'float:none!important;'
               . '}';
         $css .= '#wpadminbar #wp-admin-bar-top-secondary>li{'
               . 'float:none!important;'
-              . 'height:32px!important;'
               . 'flex-shrink:0!important;'
               . '}';
         $css .= '#wpadminbar #wp-admin-bar-root-default{'
-              . 'overflow:hidden!important;'   // BFC — nie wchodzi pod float:right
               . 'display:flex!important;'
               . 'align-items:stretch!important;'
+              . 'padding-right:var(--evk-secondary-w,220px)!important;'  // rezerwuje miejsce dla prawej strefy
               . '}';
         $css .= '#wpadminbar #wp-admin-bar-root-default>li{'
               . 'float:none!important;'
-              . 'height:32px!important;'
               . 'flex-shrink:0!important;'
               . '}';
         foreach ($bar_order as $node_id => $order) {
@@ -946,6 +947,26 @@ add_action('admin_head', function () {
     }
 
     if ($css !== '') echo '<style id="evk-white-label">'.$css.'</style>';
+
+    // JS: mierzy szerokość top-secondary i ustawia --evk-secondary-w na #wpadminbar
+    if (!empty($bar_order)) {
+        echo '<script>
+(function(){
+    function evkSetSecondaryWidth(){
+        var sec = document.getElementById("wp-admin-bar-top-secondary");
+        if(!sec) return;
+        var w = sec.offsetWidth;
+        document.getElementById("wpadminbar").style.setProperty("--evk-secondary-w", w+"px");
+    }
+    if(document.readyState === "loading"){
+        document.addEventListener("DOMContentLoaded", evkSetSecondaryWidth);
+    } else {
+        evkSetSecondaryWidth();
+    }
+    window.addEventListener("resize", evkSetSecondaryWidth);
+})();
+</script>';
+    }
 }, 9999);
 
 // -------------------------------------------------------------------------
