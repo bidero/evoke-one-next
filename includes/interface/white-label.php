@@ -18,6 +18,9 @@ function evk_wl_defaults(): array {
         'logo_height'              => 60,
         'site_name'                => '',
         'footer_text'              => '',
+        'footer_logo_url'          => '',
+        'footer_logo_width'        => 32,
+        'footer_logo_height'       => 32,
         'color_primary'            => '#2563eb',
         'color_menu_bg'            => '',
         'color_menu_text'          => '',
@@ -228,6 +231,9 @@ add_action('admin_init', function () {
                 'logo_height'            => array_key_exists('logo_height', $input)        ? max(20, min(200, absint($input['logo_height'])))          : $current['logo_height'],
                 'site_name'              => array_key_exists('site_name', $input)          ? sanitize_text_field($input['site_name'])                  : $current['site_name'],
                 'footer_text'            => array_key_exists('footer_text', $input)        ? wp_kses_post($input['footer_text'])                       : $current['footer_text'],
+                'footer_logo_url'        => array_key_exists('footer_logo_url', $input)    ? esc_url_raw($input['footer_logo_url'])                    : $current['footer_logo_url'],
+                'footer_logo_width'      => array_key_exists('footer_logo_width', $input)  ? max(16, min(300, absint($input['footer_logo_width'])))     : $current['footer_logo_width'],
+                'footer_logo_height'     => array_key_exists('footer_logo_height', $input) ? max(16, min(200, absint($input['footer_logo_height'])))    : $current['footer_logo_height'],
                 'color_primary'          => $color('color_primary', '#2563eb'),
                 'color_menu_bg'          => $color('color_menu_bg'),
                 'color_menu_text'        => $color('color_menu_text'),
@@ -582,7 +588,18 @@ add_action('admin_menu', function () {
 add_filter('admin_footer_text', function ($text) {
     $wl = evk_wl_get();
     if (empty($wl['enabled'])) return $text;
-    if (!empty($wl['hide_footer_wp'])) return !empty($wl['footer_text']) ? wp_kses_post($wl['footer_text']) : '';
+    if (!empty($wl['hide_footer_wp'])) {
+        $out = '';
+        if (!empty($wl['footer_logo_url'])) {
+            $w   = (int) ($wl['footer_logo_width']  ?: 32);
+            $h   = (int) ($wl['footer_logo_height'] ?: 32);
+            $out .= '<img src="' . esc_url($wl['footer_logo_url']) . '" width="' . $w . '" height="' . $h . '" style="vertical-align:middle;margin-right:6px;object-fit:contain;" alt="">';
+        }
+        if (!empty($wl['footer_text'])) {
+            $out .= wp_kses_post($wl['footer_text']);
+        }
+        return $out ?: '';
+    }
     return $text;
 });
 
@@ -721,7 +738,7 @@ add_action('admin_head', function () {
 
     echo '<style id="evk-wl-font">';
     if ($font_face) echo $font_face;
-    echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
+    echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar,#wpadminbar *{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
 }, 1);
 
@@ -967,6 +984,58 @@ add_action('admin_head', function () {
 })();
 </script>';
     }
+}, 9999);
+
+// -------------------------------------------------------------------------
+// Frontend: czcionka admina dla paska górnego (wp_head)
+// -------------------------------------------------------------------------
+add_action('wp_head', function () {
+    $wl = evk_wl_get();
+    if (empty($wl['enabled']) || empty($wl['admin_font_family'])) return;
+    if (!is_admin_bar_showing()) return;
+
+    $ff     = sanitize_text_field($wl['admin_font_family']);
+    $ff_esc = esc_attr($ff);
+
+    // Spróbuj zbudować @font-face z base64 (ten sam transient co admin_head)
+    $transient_key = 'evk_wl_font_b64_' . md5($ff);
+    $font_face     = get_transient($transient_key);
+    if ($font_face === false) {
+        $font_face    = '';
+        $bricks_fonts = get_option('bricks_custom_fonts', []);
+        if (is_array($bricks_fonts)) {
+            foreach ($bricks_fonts as $font) {
+                if (strtolower(trim($font['name'] ?? '')) !== strtolower($ff)) continue;
+                foreach ((array)($font['files'] ?? []) as $file) {
+                    $url    = $file['file'] ?? '';
+                    $format = sanitize_text_field($file['format'] ?? 'woff2');
+                    if (!$url || $format !== 'woff2') continue;
+                    $local_path = str_replace([site_url('/'), home_url('/')], [ABSPATH, ABSPATH], $url);
+                    $data = file_exists($local_path) ? file_get_contents($local_path) : false;
+                    if (!$data) {
+                        $response = wp_remote_get($url, ['timeout' => 5]);
+                        if (!is_wp_error($response)) $data = wp_remote_retrieve_body($response);
+                    }
+                    if ($data) {
+                        $b64       = base64_encode($data);
+                        $weight    = sanitize_text_field($font['weight'] ?? 'normal');
+                        $style     = sanitize_text_field($font['style']  ?? 'normal');
+                        $font_face = "@font-face{font-family:'{$ff_esc}';src:url('data:font/woff2;base64,{$b64}') format('woff2');font-weight:{$weight};font-style:{$style};font-display:block;}";
+                    }
+                    break 2;
+                }
+            }
+        }
+        set_transient($transient_key, $font_face, 7 * DAY_IN_SECONDS);
+    }
+    if (!$font_face) {
+        $font_face = evk_wl_get_bricks_font_face($ff);
+    }
+
+    echo '<style id="evk-wl-font-fe">';
+    if ($font_face) echo $font_face;
+    echo "#wpadminbar,#wpadminbar *{font-family:'{$ff_esc}',sans-serif!important;}";
+    echo '</style>';
 }, 9999);
 
 // -------------------------------------------------------------------------

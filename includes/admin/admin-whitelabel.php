@@ -133,6 +133,22 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
         <label>Tekst w stopce admina</label>
         <input type="text" name="evk_white_label[footer_text]" value="<?php echo esc_attr($wl['footer_text']); ?>" placeholder="Wykonano z ❤ przez Evoke Design">
     </div>
+    <div class="evo-field">
+        <label>Logo w stopce admina (z lewej strony tekstu)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <input type="url" name="evk_white_label[footer_logo_url]" value="<?php echo esc_attr($wl['footer_logo_url'] ?? ''); ?>" id="evk-wl-footer-logo-url" style="flex:1;" placeholder="https://...">
+            <button type="button" class="button" id="evk-wl-footer-logo-pick">Wybierz</button>
+        </div>
+        <?php if (!empty($wl['footer_logo_url'])): ?>
+        <img src="<?php echo esc_url($wl['footer_logo_url']); ?>" style="max-height:40px;max-width:120px;margin-top:6px;border-radius:3px;">
+        <?php endif; ?>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px;">
+            <label style="font-size:12px;color:#666;margin:0;">szer.</label>
+            <input type="number" name="evk_white_label[footer_logo_width]" value="<?php echo esc_attr($wl['footer_logo_width'] ?? 32); ?>" min="16" max="300" style="width:72px;" placeholder="32">
+            <label style="font-size:12px;color:#666;margin:0;">wys.</label>
+            <input type="number" name="evk_white_label[footer_logo_height]" value="<?php echo esc_attr($wl['footer_logo_height'] ?? 32); ?>" min="16" max="200" style="width:72px;" placeholder="32">
+        </div>
+    </div>
 
     <p class="evo-section-title">Czcionka admina</p>
     <div class="evo-field">
@@ -706,6 +722,15 @@ $('#evk-wl-logo-pick').on('click', function(e){
     var frame = wp.media({title:'Wybierz logo', button:{text:'Użyj'}, multiple:false});
     frame.on('select', function(){
         $('#evk-wl-logo-url').val(frame.state().get('selection').first().toJSON().url);
+    });
+    frame.open();
+});
+
+$('#evk-wl-footer-logo-pick').on('click', function(e){
+    e.preventDefault();
+    var frame = wp.media({title:'Wybierz logo stopki', button:{text:'Użyj'}, multiple:false});
+    frame.on('select', function(){
+        $('#evk-wl-footer-logo-url').val(frame.state().get('selection').first().toJSON().url);
     });
     frame.open();
 });

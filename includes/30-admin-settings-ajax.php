@@ -599,3 +599,25 @@ add_action('wp_ajax_evk_ajax_toggle', function () {
 
     wp_send_json_success(['option' => $option, 'field' => $field, 'value' => $value]);
 });
+
+// =========================================================================
+// AJAX: zapisz pojedynczą opcję (prosty klucz → wartość skalarna)
+// Używany m.in. przez toggle modułu tłumaczeń.
+// =========================================================================
+add_action('wp_ajax_evk_save_option', function () {
+    check_ajax_referer('evk_save_option', 'nonce');
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+
+    $allowed = [
+        'evk_tl_module_enabled',
+    ];
+
+    $option = sanitize_key(wp_unslash($_POST['option'] ?? ''));
+    if (!in_array($option, $allowed, true)) {
+        wp_send_json_error('not_allowed: ' . $option, 403);
+    }
+
+    $value = !empty($_POST['value']) ? 1 : 0;
+    update_option($option, $value);
+    wp_send_json_success(['option' => $option, 'value' => $value]);
+});

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Evoke ONE
  * Description: Zintegrowany zestaw narzędzi Evoke Design Studio — Tłumaczenia, Parallax, Konserwacja.
- * Version: 1.9.101
+ * Version: 1.9.102
  * Author: Evoke Design Studio
  * Text Domain: evoke-one
  */
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) exit;
 define('EVOKE_ONE_FILE',    __FILE__);
 define('EVOKE_ONE_DIR',     plugin_dir_path(__FILE__));
 define('EVOKE_ONE_URL',     plugin_dir_url(__FILE__));
-define('EVOKE_ONE_VERSION', '1.9.101');
+define('EVOKE_ONE_VERSION', '1.9.102');
 
 // Stałe modułu tłumaczeń (zachowane dla kompatybilności z istniejącymi ustawieniami)
 define('TL_MENU_SLUG',        'evoke-tlumaczenia');
@@ -72,18 +72,9 @@ if (function_exists('tl_get_languages') || evoke_one_check_conflicts()) {
 // ── Pliki płaskie (tłumaczenia, SEO, moduły) ─────────────────────────────
 $evoke_one_modules = [
     '00-context-safety.php',
-    '10-language-system.php',
-    '11-bricks-conditions.php',
-    '12-seo-url-filters.php',
     '20-helpers-cache-inline.php',
     '30-admin-settings-ajax.php',
     '31-admin-page.php',
-    '40-dynamic-data-shortcode.php',
-    '41-frontend-inline-editor.php',
-    '50-translation-engine.php',
-    '60-image-replacement.php',
-    '70-bricks-language-switcher.php',
-    '80-sitemap.php',
     '85-seo.php',
     '86-dashboard.php',
     '87-snippets.php',
@@ -100,6 +91,27 @@ $evoke_one_modules = [
 
 foreach ($evoke_one_modules as $module) {
     require_once EVOKE_ONE_DIR . 'includes/' . $module;
+}
+
+// ── Moduł tłumaczeń (warunkowo) ───────────────────────────────────────────
+// Ładowany w całości tylko gdy włączony. Admin page (31-admin-page.php) ładowany
+// zawsze — żeby toggle był dostępny nawet gdy moduł wyłączony.
+$evk_tl_enabled = !empty(get_option('evk_tl_module_enabled', 1));
+if ($evk_tl_enabled) {
+    $evoke_tl_modules = [
+        '10-language-system.php',
+        '11-bricks-conditions.php',
+        '12-seo-url-filters.php',
+        '40-dynamic-data-shortcode.php',
+        '41-frontend-inline-editor.php',
+        '50-translation-engine.php',
+        '60-image-replacement.php',
+        '70-bricks-language-switcher.php',
+        '80-sitemap.php',
+    ];
+    foreach ($evoke_tl_modules as $module) {
+        require_once EVOKE_ONE_DIR . 'includes/' . $module;
+    }
 }
 
 // ── Admin panel (podfolder) ───────────────────────────────────────────────
