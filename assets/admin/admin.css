@@ -470,3 +470,6 @@
         display: none !important;
     }
 }
+
+/* Fix WP footer position */
+#wpfooter { position: relative !important; }
