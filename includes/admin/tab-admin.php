@@ -8,12 +8,13 @@ $sub      = sanitize_key($_GET['sub'] ?? 'interface');
 $base_url = add_query_arg('tab', 'admin_panel', admin_url('options-general.php?page=evoke-one'));
 
 $subs = [
-    'interface'  => ['label' => 'Interfejs',     'icon' => 'dashicons-admin-appearance'],
-    'dashboard'  => ['label' => 'Kokpit',         'icon' => 'dashicons-dashboard'],
-    'avatar'     => ['label' => 'Avatar',         'icon' => 'dashicons-admin-users'],
-    'content'    => ['label' => 'Treść',          'icon' => 'dashicons-admin-comments'],
-    'whitelabel' => ['label' => 'White label',    'icon' => 'dashicons-admin-customizer'],
-    'roles'      => ['label' => 'Role Manager',   'icon' => 'dashicons-groups'],
+    'interface'    => ['label' => 'Interfejs',     'icon' => 'dashicons-admin-appearance'],
+    'dashboard'    => ['label' => 'Kokpit',         'icon' => 'dashicons-dashboard'],
+    'avatar'       => ['label' => 'Avatar',         'icon' => 'dashicons-admin-users'],
+    'content'      => ['label' => 'Treść',          'icon' => 'dashicons-admin-comments'],
+    'whitelabel'   => ['label' => 'White label',    'icon' => 'dashicons-admin-customizer'],
+    'roles'        => ['label' => 'Role Manager',   'icon' => 'dashicons-groups'],
+    'tlumaczenia'  => ['label' => 'Tłumaczenia',    'icon' => 'dashicons-translation'],
 ];
 
 if (!array_key_exists($sub, $subs)) $sub = 'interface';
@@ -41,5 +42,8 @@ switch ($sub) {
         break;
     case 'roles':
         require EVOKE_ONE_DIR . 'includes/admin/admin-roles.php';
+        break;
+    case 'tlumaczenia':
+        require EVOKE_ONE_DIR . 'includes/admin/other-tlumaczenia.php';
         break;
 }

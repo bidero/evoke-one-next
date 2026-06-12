@@ -3,30 +3,9 @@ if (!defined('ABSPATH')) exit;
 // Evoke ONE — TL tab content. Zmienne z tl_render_page(): $data $langs $codes $tab $base $nonce $ajax_url $stats
 ?>
 <?php
-            $tl_module_enabled = !empty(get_option('evk_tl_module_enabled', 1));
             $pl_flag_id  = get_option('tl_pl_flag', 0);
             $pl_flag_url = $pl_flag_id ? wp_get_attachment_image_url($pl_flag_id, 'thumbnail') : '';
             ?>
-            <!-- STATUS modułu tłumaczeń -->
-            <div class="evo-status-card" style="margin-bottom:24px;">
-                <div class="evo-status-icon <?php echo $tl_module_enabled ? 'on' : 'off'; ?>">
-                    <span class="dashicons dashicons-translation" style="font-size:24px;width:24px;height:24px;line-height:1;"></span>
-                </div>
-                <div class="evo-status-text">
-                    <h3>Moduł tłumaczeń: <?php echo $tl_module_enabled ? 'WŁĄCZONY' : 'WYŁĄCZONY'; ?></h3>
-                    <p>Gdy wyłączony — cały silnik tłumaczeń (URL, engine, switcher, sitemap) nie jest ładowany. Ustawienia są zachowane.</p>
-                </div>
-                <div class="evo-status-actions">
-                    <label class="evo-toggle">
-                        <input type="checkbox"
-                               data-option="evk_tl_module_enabled"
-                               data-field="_scalar"
-                               value="1"
-                               <?php checked($tl_module_enabled); ?>>
-                        <span class="evo-slider"></span>
-                    </label>
-                </div>
-            </div>
             <div class="tl-info-box">
                 <strong>Prefiksy językowe w URL:</strong> System używa prefiksów w URL zamiast parametrów <code>?lang=</code>.<br>
                 Przykłady: <code>/en/aktualnosci</code>, <code>/de/kontakt</code>. Polski (PL) nie ma prefiksu.<br>
