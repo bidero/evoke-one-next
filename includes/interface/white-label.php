@@ -915,12 +915,14 @@ add_action('admin_head', function () {
 
     $bar_order = $wl['bar_nodes_order'] ?? [];
     if (!empty($bar_order)) {
-        // Lewa strona (root-default) — flexbox zamiast float
-        $css .= '#wpadminbar #wp-admin-bar-root-default{display:flex!important;align-items:stretch;}';
-        $css .= '#wpadminbar #wp-admin-bar-root-default>li{float:none!important;height:32px;}';
-        // Prawa strona (top-secondary) — też flexbox, zachować float:right kontenera
-        $css .= '#wpadminbar #wp-admin-bar-top-secondary{display:flex!important;align-items:stretch;float:right!important;}';
-        $css .= '#wpadminbar #wp-admin-bar-top-secondary>li{float:none!important;height:32px;}';
+        // Lewa strona (root-default) — flexbox zamiast float, nie zajmuje całości
+        $css .= '#wpadminbar #wp-admin-bar-root-default{display:flex!important;align-items:stretch;min-width:0;overflow:hidden;}';
+        $css .= '#wpadminbar #wp-admin-bar-root-default>li{float:none!important;height:32px;flex-shrink:0;}';
+        // Prawa strona (top-secondary) — flexbox, nie zwija się nigdy
+        $css .= '#wpadminbar #wp-admin-bar-top-secondary{display:flex!important;align-items:stretch;float:right!important;flex-shrink:0;}';
+        $css .= '#wpadminbar #wp-admin-bar-top-secondary>li{float:none!important;height:32px;flex-shrink:0;}';
+        // Toolbar wrapper — żeby prawa strona mogła się "uciąć" w lewo a nie zawijać
+        $css .= '#wpadminbar #wp-toolbar{overflow:hidden;}';
         foreach ($bar_order as $node_id => $order) {
             // order stosujemy tylko na <li>, bez prefixu kontenera — działa w obu strefach
             $css .= '#wpadminbar #wp-admin-bar-'.esc_attr($node_id).'{order:'.(int)$order.'!important;}';
