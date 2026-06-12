@@ -471,5 +471,5 @@
     }
 }
 
-/* Fix WP footer position */
-#wpfooter { position: relative !important; }
+/* Fix WP footer — nie nakłada się na treść */
+#wpcontent { padding-bottom: 40px !important; }
