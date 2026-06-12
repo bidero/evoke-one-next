@@ -19,6 +19,15 @@ add_action('admin_enqueue_scripts', function ($hook) {
     if (strpos($hook, TL_MENU_SLUG) === false) return;
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_media();
+    // Załaduj główny CSS/JS admina Evoke (potrzebny dla evo-toggle, evo-status-card itp.)
+    wp_enqueue_style('evoke-one-admin',
+        EVOKE_ONE_URL . 'assets/admin/admin.css', [], EVOKE_ONE_VERSION);
+    wp_enqueue_script('evoke-one-admin',
+        EVOKE_ONE_URL . 'assets/admin/admin.js', ['jquery'], EVOKE_ONE_VERSION, true);
+    wp_localize_script('evoke-one-admin', 'evkToggle', [
+        'url'   => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('evk-toggle-nonce'),
+    ]);
 });
 
 function tl_base_url(): string {

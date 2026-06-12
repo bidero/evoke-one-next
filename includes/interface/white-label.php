@@ -738,7 +738,17 @@ add_action('admin_head', function () {
 
     echo '<style id="evk-wl-font">';
     if ($font_face) echo $font_face;
-    echo "body,body.wp-admin,#wpcontent,#adminmenu,#wpadminbar,#wpadminbar *{font-family:'{$ff_esc}',sans-serif!important;}";
+    // Uwaga: nie używamy #wpadminbar * — nadpisałoby font-family dashicons (ikony → kwadraciki).
+    // Targetujemy tylko elementy tekstowe paska, z jawnym wykluczeniem klas dashicons.
+    $bar_text = "#wpadminbar .ab-item,"
+              . "#wpadminbar a.ab-item,"
+              . "#wpadminbar .ab-label,"
+              . "#wpadminbar #wp-admin-bar-site-name>a,"
+              . "#wpadminbar .display-name,"
+              . "#wpadminbar .menupop .ab-item";
+    echo "body,body.wp-admin,#wpcontent,#adminmenu{font-family:'{$ff_esc}',sans-serif!important;}";
+    echo "#wpadminbar{{font-family:'{$ff_esc}',sans-serif!important;}}";
+    echo "{$bar_text}{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
 }, 1);
 
@@ -1034,7 +1044,14 @@ add_action('wp_head', function () {
 
     echo '<style id="evk-wl-font-fe">';
     if ($font_face) echo $font_face;
-    echo "#wpadminbar,#wpadminbar *{font-family:'{$ff_esc}',sans-serif!important;}";
+    $bar_text_fe = "#wpadminbar .ab-item,"
+                 . "#wpadminbar a.ab-item,"
+                 . "#wpadminbar .ab-label,"
+                 . "#wpadminbar #wp-admin-bar-site-name>a,"
+                 . "#wpadminbar .display-name,"
+                 . "#wpadminbar .menupop .ab-item";
+    echo "#wpadminbar{font-family:'{$ff_esc}',sans-serif!important;}";
+    echo "{$bar_text_fe}{font-family:'{$ff_esc}',sans-serif!important;}";
     echo '</style>';
 }, 9999);
 

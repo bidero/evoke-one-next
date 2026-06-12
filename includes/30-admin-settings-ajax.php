@@ -583,6 +583,7 @@ add_action('wp_ajax_evk_ajax_toggle', function () {
         'evoke_dashboard_remove_help'   => ['_scalar'],
         'evoke_dashboard_fit_content'   => ['_scalar'],
         'evoke_dashboard_shadow'        => ['_scalar'],
+        'evk_tl_module_enabled'         => ['_scalar'],
     ];
 
     if (!isset($allowed[$option]) || !in_array($field, $allowed[$option])) {
