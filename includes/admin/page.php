@@ -140,32 +140,60 @@ function evoke_one_render_settings(): void {
     ];
 
     ?>
-    <div class="wrap">
-        <h1 style="display:flex;align-items:center;gap:10px;">
-            <span class="dashicons dashicons-star-filled" style="color:#2563eb;font-size:26px;width:26px;height:26px;line-height:1;"></span>
-            Evoke ONE
-            <span style="font-size:11px;color:#94a3b8;font-weight:400;">v<?php echo esc_html(EVOKE_ONE_VERSION); ?></span>
-        </h1>
+    <div class="wrap evo-wrap">
+        <div class="evo-layout">
 
-        <div class="evo-tabs">
-            <?php foreach ($tabs as $key => $t): ?>
-            <a href="<?php echo esc_url(add_query_arg('tab', $key, $base)); ?>"
-               class="evo-tab <?php echo $tab === $key ? 'active' : ''; ?>">
-                <span class="dashicons <?php echo esc_attr($t['icon']); ?>"></span>
-                <?php echo esc_html($t['label']); ?>
-            </a>
-            <?php endforeach; ?>
-        </div>
+            <!-- SIDEBAR -->
+            <aside class="evo-sidebar">
+                <div class="evo-sidebar-brand">
+                    <span class="evo-brand-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2L17.32 6.5V15.5L10 20L2.68 15.5V6.5L10 2Z" fill="currentColor"/>
+                        </svg>
+                    </span>
+                    <div class="evo-brand-text">
+                        <span class="evo-brand-name">Evoke ONE</span>
+                        <span class="evo-brand-ver">v<?php echo esc_html(EVOKE_ONE_VERSION); ?></span>
+                    </div>
+                </div>
 
-        <div class="evo-panel">
-            <?php
-            $tab_file = EVOKE_ONE_DIR . 'includes/admin/' . ($tab_files[$tab] ?? '');
-            if ($tab_file && file_exists($tab_file)) {
-                require $tab_file;
-            } else {
-                echo '<p style="color:#dc2626;">Błąd: plik zakładki nie istnieje.</p>';
-            }
-            ?>
+                <nav class="evo-nav">
+                    <?php foreach ($tabs as $key => $t): ?>
+                    <a href="<?php echo esc_url(add_query_arg('tab', $key, $base)); ?>"
+                       class="evo-nav-item <?php echo $tab === $key ? 'is-active' : ''; ?>">
+                        <span class="evo-nav-icon dashicons <?php echo esc_attr($t['icon']); ?>"></span>
+                        <span class="evo-nav-label"><?php echo esc_html($t['label']); ?></span>
+                        <?php if ($tab === $key): ?><span class="evo-nav-pip"></span><?php endif; ?>
+                    </a>
+                    <?php endforeach; ?>
+                </nav>
+
+                <div class="evo-sidebar-footer">
+                    <a href="https://evoke.pl" target="_blank" class="evo-sidebar-link">evoke.pl</a>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main class="evo-main">
+                <header class="evo-main-header">
+                    <div class="evo-main-header-title">
+                        <span class="dashicons <?php echo esc_attr($tabs[$tab]['icon']); ?> evo-main-header-icon"></span>
+                        <h1><?php echo esc_html($tabs[$tab]['label']); ?></h1>
+                    </div>
+                </header>
+
+                <div class="evo-content">
+                    <?php
+                    $tab_file = EVOKE_ONE_DIR . 'includes/admin/' . ($tab_files[$tab] ?? '');
+                    if ($tab_file && file_exists($tab_file)) {
+                        require $tab_file;
+                    } else {
+                        echo '<p style="color:#dc2626;">Błąd: plik zakładki nie istnieje.</p>';
+                    }
+                    ?>
+                </div>
+            </main>
+
         </div>
     </div>
     <?php
