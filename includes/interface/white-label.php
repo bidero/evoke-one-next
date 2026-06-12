@@ -28,6 +28,7 @@ function evk_wl_defaults(): array {
         'color_menu_active_text'   => '',
         'color_menu_badge'         => '',
         'color_menu_badge_text'    => '',
+        'color_body_bg'            => '',
         'color_content_bg'         => '',
         'color_content_text'       => '',
         'color_link'               => '',
@@ -234,6 +235,7 @@ add_action('admin_init', function () {
                 'hide_help_tab'          => !empty($input['hide_help_tab']) ? 1 : 0,
                 'hide_screen_opts'       => !empty($input['hide_screen_opts']) ? 1 : 0,
                 'hide_footer_wp'         => !empty($input['hide_footer_wp']) ? 1 : 0,
+                'color_body_bg'          => $color('color_body_bg'),
                 'color_content_bg'       => $color('color_content_bg'),
                 'color_content_text'     => $color('color_content_text'),
                 'color_link'             => $color('color_link'),
@@ -774,6 +776,11 @@ add_action('admin_head', function () {
         $css .= "#wpadminbar .menupop .ab-sub-wrapper{background:{$sbg}!important;}";
         $css .= "#wpadminbar .ab-submenu .ab-item{color:#ddd!important;}";
         $css .= "#wpadminbar .ab-submenu .ab-item:hover{background:color-mix(in srgb,{$sbg} 80%,#000 20%)!important;color:#fff!important;}";
+    }
+
+    if (!empty($wl['color_body_bg'])) {
+        $bg = esc_attr($wl['color_body_bg']);
+        $css .= "body.wp-admin{background:{$bg}!important;}";
     }
 
     if (!empty($wl['color_content_bg'])) {

@@ -231,7 +231,9 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 
     <p class="evo-section-title" style="margin-top:16px;">Kolory — sekcja główna</p>
     <div class="evk-grid-colors">
-        <div class="evo-field" style="margin:0;"><label>Tło</label>
+        <div class="evo-field" style="margin:0;"><label style="font-size:11px;">Tło body (za panelem)</label>
+            <input type="color" data-field="color_body_bg" data-saved="<?php echo esc_attr($wl['color_body_bg'] ?? ''); ?>" name="evk_white_label[color_body_bg]" value="<?php echo esc_attr($wl['color_body_bg'] ?: '#f0f0f1'); ?>"></div>
+        <div class="evo-field" style="margin:0;"><label>Tło treści</label>
             <input type="color" data-field="color_content_bg" data-saved="<?php echo esc_attr($wl['color_content_bg'] ?? ''); ?>" name="evk_white_label[color_content_bg]"   value="<?php echo esc_attr($wl['color_content_bg']   ?: '#f0f0f1'); ?>"></div>
         <div class="evo-field" style="margin:0;"><label>Tekst</label>
             <input type="color" data-field="color_content_text" data-saved="<?php echo esc_attr($wl['color_content_text'] ?? ''); ?>" name="evk_white_label[color_content_text]" value="<?php echo esc_attr($wl['color_content_text'] ?: '#1d2327'); ?>"></div>
