@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) exit;
 
 $nl_opts   = get_option('evk_newsletter', []);
 $nl_active = !empty($nl_opts['enabled']);
-$subtab    = sanitize_key($_GET['subtab'] ?? 'lists');
+$subtab    = sanitize_key($_GET['sub'] ?? 'lists');
 $base      = admin_url('options-general.php?page=evoke-one&tab=newsletter');
 
 $subtabs = [
@@ -62,16 +62,7 @@ $smtp_ok = evk_nl_smtp_is_configured();
     <?php else: ?>
 
     <!-- Subtabs -->
-    <div class="evk-subtabs" style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #e2e8f0;padding-bottom:0;">
-        <?php foreach ($subtabs as $key => $st): ?>
-        <a href="<?php echo esc_url(add_query_arg('subtab', $key, $base)); ?>"
-           class="evk-subtab <?php echo $subtab === $key ? 'active' : ''; ?>"
-           style="display:flex;align-items:center;gap:6px;padding:10px 18px;text-decoration:none;color:<?php echo $subtab === $key ? '#2563eb' : '#64748b'; ?>;border-bottom:2px solid <?php echo $subtab === $key ? '#2563eb' : 'transparent'; ?>;margin-bottom:-2px;font-weight:<?php echo $subtab === $key ? '600' : '400'; ?>;transition:all .15s;">
-            <span class="dashicons <?php echo esc_attr($st['icon']); ?>" style="font-size:16px;width:16px;height:16px;"></span>
-            <?php echo esc_html($st['label']); ?>
-        </a>
-        <?php endforeach; ?>
-    </div>
+    <?php evoke_one_render_subtabs($subtabs, $subtab, add_query_arg('tab', 'newsletter', admin_url('options-general.php?page=evoke-one'))); ?>
 
     <!-- Subtab content -->
     <?php
