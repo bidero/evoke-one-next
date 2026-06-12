@@ -24,6 +24,17 @@ $bar_nodes_builtin = [
     'recovery-mode'     => 'Tryb odzyskiwania',
     'logout'            => 'Wyloguj',
 ];
+// Domyślna strefa dla znanych węzłów (right = top-secondary)
+$bar_nodes_default_side = [
+    'my-account'    => 'right',
+    'user-actions'  => 'right',
+    'search'        => 'right',
+    'customize'     => 'right',
+    'edit'          => 'right',
+    'appearance'    => 'right',
+    'recovery-mode' => 'right',
+    'logout'        => 'right',
+];
 // Własne węzły dodane przez użytkownika
 $bar_nodes_extra = is_array($wl['bar_nodes_extra'] ?? null) ? $wl['bar_nodes_extra'] : [];
 $bar_nodes = array_merge($bar_nodes_builtin, $bar_nodes_extra);
@@ -318,24 +329,33 @@ $bar_order = $wl['bar_nodes_order'] ?? [];
 <div style="margin-top:24px;">
     <p class="evo-section-title">Pasek górny — kolejność węzłów</p>
     <p class="evo-desc" style="margin-bottom:12px;">
-        Ustaw kolejność węzłów WordPressa w pasku. Niższa liczba = bliżej lewej strony.
-        Zostaw <strong>0</strong> dla domyślnej kolejności. Działa dla obu stref paska (lewa i prawa).
+        <strong>Strefa:</strong> lewa (<code>root-default</code>) lub prawa (<code>top-secondary</code>).
+        <strong>Kolejność:</strong> niższa liczba = wcześniej w danej strefie. Zostaw <strong>0</strong> = domyślna kolejność WP.
     </p>
     <div class="evk-order-grid">
     <?php
+    $bar_nodes_side_saved = $wl['bar_nodes_side'] ?? [];
     foreach ($bar_nodes as $node_id => $node_label):
         $order_val = isset($bar_order[$node_id]) ? (int)$bar_order[$node_id] : 0;
+        // Saved side > default side > 'left'
+        $side_val = $bar_nodes_side_saved[$node_id]
+            ?? $bar_nodes_default_side[$node_id]
+            ?? 'left';
     ?>
     <div class="evk-order-row">
-        <span style="flex:1;"><?php echo esc_html($node_label); ?></span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?php echo esc_attr($node_id); ?>"><?php echo esc_html($node_label); ?></span>
+        <select name="evk_white_label[bar_nodes_side][<?php echo esc_attr($node_id); ?>]" style="width:60px;font-size:11px;padding:2px 3px;">
+            <option value="left"  <?php selected($side_val, 'left');  ?>>◀ L</option>
+            <option value="right" <?php selected($side_val, 'right'); ?>>R ▶</option>
+        </select>
         <input type="number" name="evk_white_label[bar_nodes_order][<?php echo esc_attr($node_id); ?>]"
-               value="<?php echo $order_val; ?>" min="0" max="99" step="1" placeholder="0">
+               value="<?php echo $order_val; ?>" min="0" max="99" step="1" placeholder="0" style="width:52px;text-align:center;">
     </div>
     <?php endforeach; ?>
     </div>
     <p style="font-size:12px;color:#888;margin-top:8px;">
         <span class="dashicons dashicons-info-outline" style="font-size:14px;vertical-align:middle;"></span>
-        Technicznie: ustawia CSS <code>order</code> na flexbox admin bara. Wartości 0 nie generują CSS.
+        Zmiana strefy przenosi węzeł między lewą a prawą stroną paska. Kolejność 0 = nie zmieniam.
     </p>
 </div>
 

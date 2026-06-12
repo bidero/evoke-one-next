@@ -52,6 +52,7 @@ function evk_wl_defaults(): array {
         'bar_nodes_hidden'         => [],
         'sidebar_hidden'           => [],
         'bar_nodes_order'          => [],
+        'bar_nodes_side'           => [],  // ['node-id' => 'left'|'right']
         'sidebar_menu_order'       => [],
     ];
 }
@@ -63,6 +64,7 @@ function evk_wl_normalize(array $data): array {
     if (!is_array($result['bar_nodes_hidden']))   $result['bar_nodes_hidden']   = [];
     if (!is_array($result['sidebar_hidden']))     $result['sidebar_hidden']     = [];
     if (!is_array($result['bar_nodes_order']))    $result['bar_nodes_order']    = [];
+    if (!is_array($result['bar_nodes_side']))     $result['bar_nodes_side']     = [];
     if (!is_array($result['sidebar_menu_order'])) $result['sidebar_menu_order'] = [];
     return $result;
 }
@@ -171,6 +173,16 @@ add_action('admin_init', function () {
                 $bar_nodes_order = evk_wl_sanitize_order($input['bar_nodes_order']);
             }
 
+            $bar_nodes_side = $current['bar_nodes_side'];
+            if (array_key_exists('bar_nodes_side', $input) && is_array($input['bar_nodes_side'])) {
+                $bar_nodes_side = [];
+                foreach ($input['bar_nodes_side'] as $node_id => $side) {
+                    $node_id = sanitize_key((string) $node_id);
+                    $side    = in_array($side, ['left', 'right'], true) ? $side : 'left';
+                    if ($node_id !== '') $bar_nodes_side[$node_id] = $side;
+                }
+            }
+
             $sidebar_menu_order = $current['sidebar_menu_order'];
             if (array_key_exists('sidebar_menu_order', $input) && is_array($input['sidebar_menu_order'])) {
                 $sidebar_menu_order = array_values(array_filter(array_map(
@@ -272,6 +284,7 @@ add_action('admin_init', function () {
                 'bar_nodes_hidden'       => array_values(array_unique($bar_nodes_hidden)),
                 'sidebar_hidden'         => array_values(array_unique($sidebar_hidden)),
                 'bar_nodes_order'        => $bar_nodes_order,
+                'bar_nodes_side'         => $bar_nodes_side,
                 'sidebar_menu_order'     => $sidebar_menu_order,
             ];
 
@@ -436,6 +449,45 @@ add_action('wp_before_admin_bar_render', function () {
         $wp_admin_bar->add_node($args);
     }
 }, 999);
+
+// -------------------------------------------------------------------------
+// Admin bar: przenoszenie węzłów między strefami (lewa ↔ prawa)
+// -------------------------------------------------------------------------
+add_action('wp_before_admin_bar_render', function () {
+    $wl = evk_wl_get();
+    if (empty($wl['enabled'])) return;
+    $bar_nodes_side = $wl['bar_nodes_side'] ?? [];
+    if (empty($bar_nodes_side)) return;
+    global $wp_admin_bar;
+    if (!($wp_admin_bar instanceof WP_Admin_Bar)) return;
+
+    // Węzły prawej strefy WP (top-secondary) — domyślnie
+    $right_defaults = ['my-account','user-actions','search','customize','edit','appearance','recovery-mode','logout'];
+
+    foreach ($bar_nodes_side as $node_id => $side) {
+        $node = $wp_admin_bar->get_node($node_id);
+        if (!$node) continue;
+
+        $is_right_default = in_array($node_id, $right_defaults, true);
+        $want_right = ($side === 'right');
+
+        // Nie zmieniaj jeśli węzeł jest już we właściwej strefie
+        if ($want_right && $is_right_default) continue;
+        if (!$want_right && !$is_right_default) continue;
+
+        // Pobierz dane węzła, zmień parent i dodaj ponownie
+        $args = [
+            'id'     => $node->id,
+            'title'  => $node->title,
+            'href'   => $node->href,
+            'parent' => $want_right ? 'top-secondary' : 'root-default',
+            'meta'   => (array) $node->meta,
+            'group'  => $node->group,
+        ];
+        $wp_admin_bar->remove_node($node_id);
+        $wp_admin_bar->add_node($args);
+    }
+}, 1000);
 
 // -------------------------------------------------------------------------
 // Menu boczne: ukrywanie dla non-adminów
@@ -863,10 +915,15 @@ add_action('admin_head', function () {
 
     $bar_order = $wl['bar_nodes_order'] ?? [];
     if (!empty($bar_order)) {
+        // Lewa strona (root-default) — flexbox zamiast float
         $css .= '#wpadminbar #wp-admin-bar-root-default{display:flex!important;align-items:stretch;}';
         $css .= '#wpadminbar #wp-admin-bar-root-default>li{float:none!important;height:32px;}';
+        // Prawa strona (top-secondary) — też flexbox, zachować float:right kontenera
+        $css .= '#wpadminbar #wp-admin-bar-top-secondary{display:flex!important;align-items:stretch;float:right!important;}';
+        $css .= '#wpadminbar #wp-admin-bar-top-secondary>li{float:none!important;height:32px;}';
         foreach ($bar_order as $node_id => $order) {
-            $css .= '#wp-admin-bar-'.esc_attr($node_id).'{order:'.(int)$order.';}';
+            // order stosujemy tylko na <li>, bez prefixu kontenera — działa w obu strefach
+            $css .= '#wpadminbar #wp-admin-bar-'.esc_attr($node_id).'{order:'.(int)$order.'!important;}';
         }
     }
 
