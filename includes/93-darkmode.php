@@ -345,10 +345,97 @@ CSS;
 }
 
 CSS;
-            } else {
-                // fade / zoom-out / zoom-in / slide-push / iris
-                // obsługiwane przez JS overlay (sessionStorage OUT→IN)
-                // brak dodatkowych pseudoelementów ::view-transition-*
+            } elseif ($nav_type === 'fade') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-nav-fade-out {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-nav-fade-in {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-nav-fade-out { from { opacity:1; } to { opacity:0; } }
+@keyframes evk-nav-fade-in  { from { opacity:0; } to { opacity:1; } }
+
+CSS;
+            } elseif ($nav_type === 'zoom-out') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-zoom-out-old {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-zoom-out-new {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-zoom-out-old {
+    from { transform:scale(1);    opacity:1; }
+    to   { transform:scale(0.85); opacity:0; }
+}
+@keyframes evk-zoom-out-new {
+    from { transform:scale(1.1); opacity:0; }
+    to   { transform:scale(1);   opacity:1; }
+}
+
+CSS;
+            } elseif ($nav_type === 'zoom-in') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-zoom-in-old {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-zoom-in-new {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-zoom-in-old {
+    from { transform:scale(1);    opacity:1; }
+    to   { transform:scale(1.15); opacity:0; }
+}
+@keyframes evk-zoom-in-new {
+    from { transform:scale(0.9); opacity:0; }
+    to   { transform:scale(1);   opacity:1; }
+}
+
+CSS;
+            } elseif ($nav_type === 'slide-push') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-slide-out {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-slide-in {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-slide-out {
+    from { transform:translateX(0); }
+    to   { transform:translateX(-100%); }
+}
+@keyframes evk-slide-in {
+    from { transform:translateX(100%); }
+    to   { transform:translateX(0); }
+}
+
+CSS;
+            } elseif ($nav_type === 'iris') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: none;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    z-index: 2;
+    animation: evk-iris {$wipe_dur}s {$wipe_easing} both;
+    clip-path: circle(0% at 50% 50%);
+}
+@keyframes evk-iris {
+    from { clip-path: circle(0% at 50% 50%); }
+    to   { clip-path: circle(150% at 50% 50%); }
+}
+
+CSS;
             }
         }
 
@@ -577,10 +664,6 @@ CSS;
     // Wipe (zasłona) działa przez View Transition CSS — bez JS.
     // Pozostałe typy używają JS overlay który zakrywa ekran,
     // nawiguje, a po załadowaniu nowej strony odkrywa.
-    var navOverlayTypes = ['fade', 'zoom-out', 'zoom-in', 'slide-push', 'iris'];
-    var navWipeColor  = '<?php echo esc_js($s['wipe_color'] ?? '#ffffff'); ?>';
-    var navRippleColor = '<?php echo esc_js($s['nav_ripple_color'] ?? '#ffffff'); ?>';
-
     // ── Nav Ripple: ustaw pozycję kliknięcia jako CSS vars przed MPA nawigacją ──
     // @view-transition CSS sam obsługuje animację — JS tylko przekazuje X/Y.
     // ::view-transition-new renderuje się na NOWEJ stronie, więc pozycję
@@ -616,136 +699,7 @@ CSS;
         }, true);
     }
 
-    if (navEnabled && navOverlayTypes.indexOf(navTransType) !== -1) {
-        var navBusy = false;
 
-        // ── Animacja IN: odkryj nową stronę po załadowaniu ──
-        // Overlay zakrywa nową stronę w stanie końcowym animacji OUT,
-        // potem odkrywa przez animację IN (odwrotny kierunek).
-        var storedNav = sessionStorage.getItem('evk_nav_trans');
-        if (storedNav) {
-            try { storedNav = JSON.parse(storedNav); } catch(e) { storedNav = null; }
-            sessionStorage.removeItem('evk_nav_trans');
-        }
-        if (storedNav && storedNav.type) {
-            var t = storedNav.type;
-            var inOv = document.createElement('div');
-            inOv.setAttribute('aria-hidden', 'true');
-            var baseCSS = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + navWipeColor;
-
-            // Stan startowy IN = stan końcowy OUT (ekran zakryty)
-            if (t === 'fade') {
-                inOv.style.cssText = baseCSS + ';opacity:1';
-            } else if (t === 'zoom-out') {
-                inOv.style.cssText = baseCSS + ';opacity:1;transform:scale(1)';
-            } else if (t === 'zoom-in') {
-                inOv.style.cssText = baseCSS + ';opacity:1;transform:scale(1)';
-            } else if (t === 'slide-push') {
-                inOv.style.cssText = baseCSS + ';transform:translateX(0)';
-            } else if (t === 'iris') {
-                inOv.style.cssText = baseCSS + ';clip-path:circle(150% at 50% 50%)';
-            } else {
-                inOv.style.cssText = baseCSS + ';opacity:1';
-            }
-
-            document.documentElement.appendChild(inOv);
-
-            var inKeyframes;
-            if (t === 'fade') {
-                inKeyframes = [{ opacity: '1' }, { opacity: '0' }];
-            } else if (t === 'zoom-out') {
-                // Nowa strona odsłania się: overlay oddala i zanika
-                inKeyframes = [{ opacity: '1', transform: 'scale(1)' }, { opacity: '0', transform: 'scale(1.08)' }];
-            } else if (t === 'zoom-in') {
-                inKeyframes = [{ opacity: '1', transform: 'scale(1)' }, { opacity: '0', transform: 'scale(0.92)' }];
-            } else if (t === 'slide-push') {
-                // Overlay wysuwa się w prawo odsłaniając nową stronę
-                inKeyframes = [{ transform: 'translateX(0)' }, { transform: 'translateX(100%)' }];
-            } else if (t === 'iris') {
-                inKeyframes = [{ clipPath: 'circle(150% at 50% 50%)' }, { clipPath: 'circle(0% at 50% 50%)' }];
-            }
-
-            if (inKeyframes) {
-                requestAnimationFrame(function () {
-                    requestAnimationFrame(function () {
-                        var inAnim = inOv.animate(inKeyframes, {
-                            duration: navDuration,
-                            easing: navEasing,
-                            fill: 'forwards'
-                        });
-                        inAnim.onfinish = function () {
-                            if (inOv.parentNode) inOv.parentNode.removeChild(inOv);
-                        };
-                    });
-                });
-            }
-        }
-
-        // ── Animacja OUT: zakryj ekran, potem nawiguj ──
-        document.addEventListener('click', function (e) {
-            if (navBusy) return;
-
-            var link = e.target.closest ? e.target.closest('a') : (function () {
-                var el = e.target;
-                while (el && el.tagName !== 'A') el = el.parentNode;
-                return (el && el.tagName === 'A') ? el : null;
-            }());
-            if (!link) return;
-
-            var href = link.getAttribute('href');
-            if (!href) return;
-            if (link.target === '_blank') return;
-            if (/^[#?]|^(mailto|tel|javascript):/i.test(href.trim())) return;
-
-            var dest;
-            try { dest = new URL(href, location.href); } catch (x) { return; }
-            if (dest.origin !== location.origin) return;
-            if (/\/wp-admin\//.test(dest.pathname)) return;
-            if (dest.href === location.href) return;
-
-            e.preventDefault();
-            navBusy = true;
-
-            var outOv = document.createElement('div');
-            outOv.setAttribute('aria-hidden', 'true');
-            var baseCSS = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + navWipeColor;
-
-            // Stan startowy OUT = overlay niewidoczny (stara strona widoczna)
-            var outKeyframes;
-            if (navTransType === 'fade') {
-                outOv.style.cssText = baseCSS + ';opacity:0';
-                outKeyframes = [{ opacity: '0' }, { opacity: '1' }];
-            } else if (navTransType === 'zoom-out') {
-                // Overlay wylatuje z dołu: przybliża się zakrywając stronę
-                outOv.style.cssText = baseCSS + ';opacity:0;transform:scale(1.08)';
-                outKeyframes = [{ opacity: '0', transform: 'scale(1.08)' }, { opacity: '1', transform: 'scale(1)' }];
-            } else if (navTransType === 'zoom-in') {
-                outOv.style.cssText = baseCSS + ';opacity:0;transform:scale(0.92)';
-                outKeyframes = [{ opacity: '0', transform: 'scale(0.92)' }, { opacity: '1', transform: 'scale(1)' }];
-            } else if (navTransType === 'slide-push') {
-                // Overlay wjeżdża z prawej zakrywając stronę
-                outOv.style.cssText = baseCSS + ';transform:translateX(100%)';
-                outKeyframes = [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }];
-            } else if (navTransType === 'iris') {
-                outOv.style.cssText = baseCSS + ';clip-path:circle(0% at 50% 50%)';
-                outKeyframes = [{ clipPath: 'circle(0% at 50% 50%)' }, { clipPath: 'circle(150% at 50% 50%)' }];
-            }
-
-            sessionStorage.setItem('evk_nav_trans', JSON.stringify({ type: navTransType }));
-            document.documentElement.appendChild(outOv);
-
-            if (outKeyframes) {
-                var outAnim = outOv.animate(outKeyframes, {
-                    duration: navDuration,
-                    easing: navEasing,
-                    fill: 'forwards'
-                });
-                outAnim.onfinish = function () { location.href = dest.href; };
-            } else {
-                location.href = dest.href;
-            }
-        }, true);
-    }
 })();
 </script>
         <?php
