@@ -310,101 +310,10 @@ CSS;
 }
 
 CSS;
-            } elseif ($nav_type === 'fade') {
-                echo <<<CSS
-::view-transition-old(root) {
-    animation: evk-nav-fade-out {$wipe_dur}s {$wipe_easing} both;
-    z-index: 1;
-}
-::view-transition-new(root) {
-    animation: evk-nav-fade-in {$wipe_dur}s {$wipe_easing} both;
-    z-index: 2;
-}
-@keyframes evk-nav-fade-out { from { opacity:1; } to { opacity:0; } }
-@keyframes evk-nav-fade-in  { from { opacity:0; } to { opacity:1; } }
-
-CSS;
-            } elseif ($nav_type === 'zoom-out') {
-                echo <<<CSS
-::view-transition-old(root) {
-    animation: evk-zoom-out-old {$wipe_dur}s {$wipe_easing} both;
-    z-index: 1;
-}
-::view-transition-new(root) {
-    animation: evk-zoom-out-new {$wipe_dur}s {$wipe_easing} both;
-    z-index: 2;
-}
-@keyframes evk-zoom-out-old {
-    from { transform:scale(1);   opacity:1; }
-    to   { transform:scale(0.85); opacity:0; }
-}
-@keyframes evk-zoom-out-new {
-    from { transform:scale(1.1); opacity:0; }
-    to   { transform:scale(1);   opacity:1; }
-}
-
-CSS;
-            } elseif ($nav_type === 'zoom-in') {
-                echo <<<CSS
-::view-transition-old(root) {
-    animation: evk-zoom-in-old {$wipe_dur}s {$wipe_easing} both;
-    z-index: 1;
-}
-::view-transition-new(root) {
-    animation: evk-zoom-in-new {$wipe_dur}s {$wipe_easing} both;
-    z-index: 2;
-}
-@keyframes evk-zoom-in-old {
-    from { transform:scale(1);    opacity:1; }
-    to   { transform:scale(1.15); opacity:0; }
-}
-@keyframes evk-zoom-in-new {
-    from { transform:scale(0.9); opacity:0; }
-    to   { transform:scale(1);   opacity:1; }
-}
-
-CSS;
-            } elseif ($nav_type === 'slide-push') {
-                echo <<<CSS
-::view-transition-old(root) {
-    animation: evk-slide-out {$wipe_dur}s {$wipe_easing} both;
-    z-index: 1;
-}
-::view-transition-new(root) {
-    animation: evk-slide-in {$wipe_dur}s {$wipe_easing} both;
-    z-index: 2;
-}
-@keyframes evk-slide-out {
-    from { transform:translateX(0); }
-    to   { transform:translateX(-100%); }
-}
-@keyframes evk-slide-in {
-    from { transform:translateX(100%); }
-    to   { transform:translateX(0); }
-}
-
-CSS;
-            } elseif ($nav_type === 'iris') {
-                echo <<<CSS
-::view-transition-old(root) {
-    animation: none;
-    z-index: 1;
-}
-::view-transition-new(root) {
-    z-index: 2;
-    animation: evk-iris {$wipe_dur}s {$wipe_easing} both;
-    clip-path: circle(0% at 50% 50%);
-}
-@keyframes evk-iris {
-    from { clip-path: circle(0% at 50% 50%); }
-    to   { clip-path: circle(150% at 50% 50%); }
-}
-
-CSS;
-            } elseif ($nav_type === 'nav-ripple') {
-                // Ripple obsługiwany przez JS (overlay div + clip-path)
-                // Brak dodatkowego CSS — @view-transition już wstrzyknięty powyżej
-                // ale nie potrzebujemy pseudoelementów ::view-transition-*
+            } else {
+                // fade / zoom-out / zoom-in / slide-push / iris / nav-ripple
+                // obsługiwane przez JS overlay (sessionStorage OUT→IN)
+                // brak dodatkowych pseudoelementów ::view-transition-*
             }
         }
 
@@ -628,19 +537,80 @@ CSS;
         }
     }
 
-    // ── Nav Ripple: nakładka kołowa od miejsca kliknięcia ──
-    // Działa jak zasłona: zakrywa ekran kołem, potem nawiguje.
-    // Nie używa startViewTransition (MPA nie może snapshottować nowej strony).
-    if (navEnabled && navTransType === 'nav-ripple') {
-        var navRippleBusy = false;
-        var navRippleColor = '<?php echo esc_js($s['nav_ripple_color'] ?? '#ffffff'); ?>';
+    // ── Overlay nawigacyjny: zakrywa ekran PRZED przeładowaniem ──
+    // Wipe (zasłona) działa przez View Transition CSS — bez JS.
+    // Pozostałe typy używają JS overlay który zakrywa ekran,
+    // nawiguje, a po załadowaniu nowej strony odkrywa.
+    var navOverlayTypes = ['fade', 'zoom-out', 'zoom-in', 'slide-push', 'iris', 'nav-ripple'];
+    var navWipeColor  = '<?php echo esc_js($s['wipe_color'] ?? '#ffffff'); ?>';
+    var navRippleColor = '<?php echo esc_js($s['nav_ripple_color'] ?? '#ffffff'); ?>';
 
-        var navOverlay = document.createElement('div');
-        navOverlay.setAttribute('aria-hidden', 'true');
-        navOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + navRippleColor + ';clip-path:circle(0% at 50% 50%);will-change:clip-path';
+    if (navEnabled && navOverlayTypes.indexOf(navTransType) !== -1) {
+        var navBusy = false;
 
+        // Odkryj nową stronę po załadowaniu (animacja IN)
+        var storedNav = sessionStorage.getItem('evk_nav_trans');
+        if (storedNav) {
+            try { storedNav = JSON.parse(storedNav); } catch(e) { storedNav = null; }
+            sessionStorage.removeItem('evk_nav_trans');
+        }
+        if (storedNav && storedNav.type) {
+            var inOv = document.createElement('div');
+            inOv.setAttribute('aria-hidden', 'true');
+            var inColor = storedNav.type === 'nav-ripple' ? navRippleColor : navWipeColor;
+            inOv.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + inColor + ';will-change:transform,opacity,clip-path';
+            document.documentElement.appendChild(inOv);
+
+            var inKeyframes, inOpts;
+            var t = storedNav.type;
+            var xPct = storedNav.x || 50;
+            var yPct = storedNav.y || 50;
+
+            if (t === 'fade') {
+                inKeyframes = [{ opacity: '1' }, { opacity: '0' }];
+            } else if (t === 'zoom-out') {
+                inKeyframes = [{ transform: 'scale(1.08)', opacity: '1' }, { transform: 'scale(1)', opacity: '0' }];
+            } else if (t === 'zoom-in') {
+                inKeyframes = [{ transform: 'scale(0.92)', opacity: '1' }, { transform: 'scale(1)', opacity: '0' }];
+            } else if (t === 'slide-push') {
+                inKeyframes = [{ transform: 'translateX(0)' }, { transform: 'translateX(100%)' }];
+            } else if (t === 'iris') {
+                inKeyframes = [
+                    { clipPath: 'circle(150% at 50% 50%)' },
+                    { clipPath: 'circle(0% at 50% 50%)' }
+                ];
+            } else if (t === 'nav-ripple') {
+                inKeyframes = [
+                    { clipPath: 'circle(150% at ' + xPct + '% ' + yPct + '%)' },
+                    { clipPath: 'circle(0% at '   + xPct + '% ' + yPct + '%)' }
+                ];
+            }
+
+            if (inKeyframes) {
+                inOv.style.cssText += ';' + (inKeyframes[0].clipPath ? '' : '');
+                // Ustaw stan startowy
+                if (inKeyframes[0].opacity !== undefined) inOv.style.opacity = inKeyframes[0].opacity;
+                if (inKeyframes[0].transform !== undefined) inOv.style.transform = inKeyframes[0].transform;
+                if (inKeyframes[0].clipPath !== undefined) inOv.style.clipPath = inKeyframes[0].clipPath;
+
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        var inAnim = inOv.animate(inKeyframes, {
+                            duration: navDuration,
+                            easing: navEasing,
+                            fill: 'forwards'
+                        });
+                        inAnim.onfinish = function () {
+                            if (inOv.parentNode) inOv.parentNode.removeChild(inOv);
+                        };
+                    });
+                });
+            }
+        }
+
+        // Zakryj ekran przy kliknięciu (animacja OUT), potem nawiguj
         document.addEventListener('click', function (e) {
-            if (navRippleBusy) return;
+            if (navBusy) return;
 
             var link = e.target.closest ? e.target.closest('a') : (function () {
                 var el = e.target;
@@ -661,30 +631,67 @@ CSS;
             if (dest.href === location.href) return;
 
             e.preventDefault();
-            navRippleBusy = true;
+            navBusy = true;
 
             var x = e.clientX;
             var y = e.clientY;
             var vw = window.innerWidth;
             var vh = window.innerHeight;
-            var r    = Math.hypot(Math.max(x, vw - x), Math.max(y, vh - y));
-            var diag = Math.hypot(vw, vh);
-            var pct  = Math.ceil((r / diag) * 200);
             var xPct = Math.round(x / vw * 100);
             var yPct = Math.round(y / vh * 100);
 
-            navOverlay.style.clipPath = 'circle(0% at ' + xPct + '% ' + yPct + '%)';
-            document.body.appendChild(navOverlay);
+            var outOv = document.createElement('div');
+            outOv.setAttribute('aria-hidden', 'true');
+            var outColor = navTransType === 'nav-ripple' ? navRippleColor : navWipeColor;
+            outOv.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + outColor + ';will-change:transform,opacity,clip-path';
+            document.documentElement.appendChild(outOv);
 
-            var anim = navOverlay.animate(
-                [
+            var outKeyframes;
+            if (navTransType === 'fade') {
+                outOv.style.opacity = '0';
+                outKeyframes = [{ opacity: '0' }, { opacity: '1' }];
+            } else if (navTransType === 'zoom-out') {
+                outOv.style.opacity = '0';
+                outOv.style.transform = 'scale(0.92)';
+                outKeyframes = [{ transform: 'scale(0.92)', opacity: '0' }, { transform: 'scale(1)', opacity: '1' }];
+            } else if (navTransType === 'zoom-in') {
+                outOv.style.opacity = '0';
+                outOv.style.transform = 'scale(1.08)';
+                outKeyframes = [{ transform: 'scale(1.08)', opacity: '0' }, { transform: 'scale(1)', opacity: '1' }];
+            } else if (navTransType === 'slide-push') {
+                outOv.style.transform = 'translateX(100%)';
+                outKeyframes = [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }];
+            } else if (navTransType === 'iris') {
+                outOv.style.clipPath = 'circle(0% at 50% 50%)';
+                outKeyframes = [
+                    { clipPath: 'circle(0% at 50% 50%)' },
+                    { clipPath: 'circle(150% at 50% 50%)' }
+                ];
+            } else if (navTransType === 'nav-ripple') {
+                outOv.style.clipPath = 'circle(0% at ' + xPct + '% ' + yPct + '%)';
+                var r    = Math.hypot(Math.max(x, vw - x), Math.max(y, vh - y));
+                var diag = Math.hypot(vw, vh);
+                var pct  = Math.ceil((r / diag) * 200);
+                outKeyframes = [
                     { clipPath: 'circle(0% at '   + xPct + '% ' + yPct + '%)' },
                     { clipPath: 'circle(' + pct + '% at ' + xPct + '% ' + yPct + '%)' }
-                ],
-                { duration: navDuration, easing: navEasing, fill: 'forwards' }
-            );
+                ];
+            }
 
-            anim.onfinish = function () { location.href = dest.href; };
+            sessionStorage.setItem('evk_nav_trans', JSON.stringify({
+                type: navTransType, x: xPct, y: yPct
+            }));
+
+            if (outKeyframes) {
+                var outAnim = outOv.animate(outKeyframes, {
+                    duration: navDuration,
+                    easing: navEasing,
+                    fill: 'forwards'
+                });
+                outAnim.onfinish = function () { location.href = dest.href; };
+            } else {
+                location.href = dest.href;
+            }
         }, true);
     }
 })();
