@@ -275,6 +275,16 @@ CSS;
     inherits: true;
     initial-value: 0%;
 }
+@property --nav-click-x {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 50%;
+}
+@property --nav-click-y {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 50%;
+}
 
 CSS;
 
