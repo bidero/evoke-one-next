@@ -327,7 +327,8 @@ CSS;
 CSS;
             } elseif ($nav_type === 'nav-ripple') {
                 // Identyczny mechanizm co wipe — @view-transition + animowany ::view-transition-new
-                // JS ustawia --nav-click-x/y na <html> przed nawigacją
+                // JS ustawia --nav-click-x/y na <html> przed nawigacją.
+                // Animujemy zarejestrowaną --nav-circle-r (interpolowalną), pozycja z var().
                 echo <<<CSS
 ::view-transition-old(root) {
     animation: none;
@@ -335,11 +336,12 @@ CSS;
 }
 ::view-transition-new(root) {
     z-index: 2;
+    clip-path: circle(var(--nav-circle-r, 0%) at var(--nav-click-x, 50%) var(--nav-click-y, 50%));
     animation: evk-nav-ripple {$wipe_dur}s {$wipe_easing} both;
 }
 @keyframes evk-nav-ripple {
-    from { clip-path: circle(0% at var(--nav-click-x, 50%) var(--nav-click-y, 50%)); }
-    to   { clip-path: circle(150% at var(--nav-click-x, 50%) var(--nav-click-y, 50%)); }
+    from { --nav-circle-r: 0%; }
+    to   { --nav-circle-r: 150%; }
 }
 
 CSS;
@@ -480,7 +482,8 @@ CSS;
         $nav_enabled      = !empty($s['wipe_enabled']);
         $nav_duration_ms  = intval(floatval($s['wipe_duration']) * 1000);
         $nav_easing       = esc_js($s['wipe_easing']);
-        ?>\n<script id="evk-darkmode-js">
+        ?>
+<script id="evk-darkmode-js">
 (function () {
     var html       = document.documentElement;
     var storageKey = 'brx_mode';
@@ -580,7 +583,20 @@ CSS;
 
     // ── Nav Ripple: ustaw pozycję kliknięcia jako CSS vars przed MPA nawigacją ──
     // @view-transition CSS sam obsługuje animację — JS tylko przekazuje X/Y.
+    // ::view-transition-new renderuje się na NOWEJ stronie, więc pozycję
+    // przekazujemy przez sessionStorage i odtwarzamy natychmiast przy starcie.
     if (navEnabled && navTransType === 'nav-ripple') {
+        // Odtwórz pozycję z poprzedniego kliknięcia (dla snapshotu new)
+        var ripplePos = sessionStorage.getItem('evk_ripple_pos');
+        if (ripplePos) {
+            try {
+                var rp = JSON.parse(ripplePos);
+                html.style.setProperty('--nav-click-x', rp.x);
+                html.style.setProperty('--nav-click-y', rp.y);
+            } catch (e) {}
+            sessionStorage.removeItem('evk_ripple_pos');
+        }
+
         document.addEventListener('click', function (e) {
             var link = e.target.closest ? e.target.closest('a') : (function () {
                 var el = e.target;
@@ -595,6 +611,8 @@ CSS;
             var y = Math.round(e.clientY / window.innerHeight * 100) + '%';
             html.style.setProperty('--nav-click-x', x);
             html.style.setProperty('--nav-click-y', y);
+            // Zapisz dla nowej strony (snapshot ::view-transition-new)
+            sessionStorage.setItem('evk_ripple_pos', JSON.stringify({ x: x, y: y }));
         }, true);
     }
 
