@@ -42,6 +42,14 @@ class EVK_DarkMode {
         'ripple_duration'   => 1200,
         'ripple_blur'       => 20,
         'ripple_easing'     => 'cubic-bezier(0.4, 0, 0.2, 1)',
+        // Przejścia wpis lista → pojedynczy wpis
+        'post_trans_enabled'       => 0,
+        'post_trans_title_class'   => '',
+        'post_trans_image_class'   => '',
+        'post_trans_title_single'  => '',
+        'post_trans_image_single'  => '',
+        'post_trans_duration'      => 0.5,
+        'post_trans_easing'        => 'ease-in-out',
     ];
 
     public static function get_instance(): self {
@@ -54,8 +62,10 @@ class EVK_DarkMode {
     private function __construct() {
         add_action('wp_head',    [$this, 'render_logo_block_script'], 1);
         add_action('wp_head',    [$this, 'render_styles'], 5);
+        add_action('wp_head',    [$this, 'render_post_trans_single'], 6);
         add_action('wp_footer',  [$this, 'render_scripts'], 20);
         add_action('admin_init', [$this, 'register_settings']);
+        add_filter('bricks/element/render_attributes', [$this, 'inject_post_trans_attrs'], 10, 3);
     }
 
     public function get_settings(): array {
@@ -72,15 +82,16 @@ class EVK_DarkMode {
     public function sanitize_settings($input): array {
         $clean = [];
 
-        foreach (['enabled', 'bricks_enabled', 'logo_enabled', 'ripple_enabled', 'wipe_enabled'] as $key) {
+        foreach (['enabled', 'bricks_enabled', 'logo_enabled', 'ripple_enabled', 'wipe_enabled', 'post_trans_enabled'] as $key) {
             $clean[$key] = !empty($input[$key]) ? 1 : 0;
         }
 
         $floats = [
-            'global_duration' => [0.1, 5.0, 0.4],
-            'bricks_duration' => [0.1, 5.0, 1.0],
-            'logo_duration'   => [0.1, 5.0, 1.0],
-            'wipe_duration'   => [0.3, 5.0, 1.5],
+            'global_duration'      => [0.1, 5.0, 0.4],
+            'bricks_duration'      => [0.1, 5.0, 1.0],
+            'logo_duration'        => [0.1, 5.0, 1.0],
+            'wipe_duration'        => [0.3, 5.0, 1.5],
+            'post_trans_duration'  => [0.1, 3.0, 0.5],
         ];
         foreach ($floats as $key => [$min, $max, $default]) {
             $clean[$key] = isset($input[$key]) ? max($min, min($max, floatval($input[$key]))) : $default;
@@ -100,6 +111,8 @@ class EVK_DarkMode {
             'bricks_selectors', 'bricks_properties',
             'logo_light_class', 'logo_dark_class',
             'toggle_selector',
+            'post_trans_title_class', 'post_trans_image_class',
+            'post_trans_title_single', 'post_trans_image_single',
         ];
         foreach ($texts as $key) {
             $clean[$key] = isset($input[$key]) ? sanitize_textarea_field($input[$key]) : $this->defaults[$key];
@@ -113,7 +126,7 @@ class EVK_DarkMode {
             ? $input['wipe_direction']
             : $this->defaults['wipe_direction'];
 
-        $easings = ['global_easing', 'bricks_easing', 'logo_easing', 'ripple_easing', 'wipe_easing'];
+        $easings = ['global_easing', 'bricks_easing', 'logo_easing', 'ripple_easing', 'wipe_easing', 'post_trans_easing'];
         $allowed_easings = ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear',
                             'cubic-bezier(0.33, 1, 0.68, 1)', 'cubic-bezier(0.4, 0, 0.2, 1)'];
         foreach ($easings as $key) {
@@ -308,6 +321,89 @@ html.is-theme-toggling {
 }
 
 CSS;
+        }
+
+        echo "</style>\n";
+    }
+
+    /**
+     * Wstrzykuje view-transition-name na elementach Bricks w query loop (lista wpisów).
+     * Bricks przekazuje $key = 'root'|'image'|itp. i $element — obiekt z settings.
+     */
+    public function inject_post_trans_attrs(array $attributes, string $key, $element): array {
+        $s = $this->get_settings();
+        if (empty($s['enabled']) || empty($s['post_trans_enabled'])) return $attributes;
+        if (!in_the_loop() && !is_singular()) return $attributes;
+        if (is_singular()) return $attributes; // na singlu używamy wp_head CSS
+
+        $post_id = get_the_ID();
+        if (!$post_id) return $attributes;
+
+        // Klasy podane przez usera (może być kilka oddzielone spacją/przecinkiem)
+        $title_classes = array_filter(array_map('trim', preg_split('/[\s,]+/', $s['post_trans_title_class'])));
+        $image_classes = array_filter(array_map('trim', preg_split('/[\s,]+/', $s['post_trans_image_class'])));
+
+        if ($key !== 'root') return $attributes;
+
+        $el_classes = (array)($element->settings['_cssClasses'] ?? []);
+        // Bricks przechowuje klasy jako string lub array
+        if (is_string($el_classes)) {
+            $el_classes = array_filter(array_map('trim', explode(' ', $el_classes)));
+        }
+
+        $is_title = !empty($title_classes) && count(array_intersect($title_classes, $el_classes)) > 0;
+        $is_image = !empty($image_classes) && count(array_intersect($image_classes, $el_classes)) > 0;
+
+        if (!$is_title && !$is_image) return $attributes;
+
+        $name = $is_title ? "post-title-{$post_id}" : "post-img-{$post_id}";
+
+        // Dołącz do istniejącego style="" lub dodaj nowy
+        $existing = $attributes['style'] ?? '';
+        $attributes['style'] = trim($existing . " view-transition-name: {$name};");
+
+        return $attributes;
+    }
+
+    /**
+     * Na stronie pojedynczego wpisu: wstrzykuje view-transition-name dla tytułu i obrazka
+     * poprzez CSS targetujący selektory podane w ustawieniach.
+     */
+    public function render_post_trans_single(): void {
+        $s = $this->get_settings();
+        if (empty($s['enabled']) || empty($s['post_trans_enabled'])) return;
+        if (!is_singular()) return;
+
+        $post_id  = get_queried_object_id();
+        if (!$post_id) return;
+
+        $dur    = floatval($s['post_trans_duration']);
+        $easing = esc_attr($s['post_trans_easing']);
+
+        $title_sel = trim($s['post_trans_title_single']);
+        $image_sel = trim($s['post_trans_image_single']);
+
+        if (!$title_sel && !$image_sel) return;
+
+        echo "<style id=\"evk-post-trans\">\n";
+
+        if ($title_sel) {
+            echo esc_html($title_sel) . " {\n";
+            echo "    view-transition-name: post-title-{$post_id};\n";
+            echo "}\n";
+        }
+        if ($image_sel) {
+            echo esc_html($image_sel) . " {\n";
+            echo "    view-transition-name: post-img-{$post_id};\n";
+            echo "}\n";
+        }
+
+        $names = array_filter(["post-title-{$post_id}", "post-img-{$post_id}"]);
+        foreach ($names as $n) {
+            echo "::view-transition-group({$n}) {\n";
+            echo "    animation-duration: {$dur}s;\n";
+            echo "    animation-timing-function: {$easing};\n";
+            echo "}\n";
         }
 
         echo "</style>\n";

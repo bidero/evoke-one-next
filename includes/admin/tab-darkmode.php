@@ -202,5 +202,55 @@ if (!defined('ABSPATH')) exit;
 
                 <div class="evo-save-bar">
                     <?php submit_button('Zapisz ustawienia Dark Mode', 'primary', 'submit', false); ?>
+
+                <hr class="evo-divider">
+                <p class="evo-section-title">Przejścia elementów lista → wpis (View Transition)</p>
+                <div class="evo-info-box">
+                    <span class="dashicons dashicons-info"></span>
+                    <div>Tytuł i obrazek z listy wpisów "przefruną" płynnie do ich odpowiedników na stronie wpisu. Wymaga Chrome/Edge 111+ z <code>@view-transition { navigation: auto }</code>. Podaj klasy CSS elementów Bricks — bez kropki.</div>
+                </div>
+
+                <div class="evo-field">
+                    <label style="display:flex;align-items:center;gap:10px;">
+                        <input type="checkbox" name="evk_darkmode[post_trans_enabled]" value="1" <?php checked(!empty($dm['post_trans_enabled'])); ?>>
+                        Włącz przejścia lista → wpis
+                    </label>
+                </div>
+
+                <p class="evo-section-title" style="font-size:12px;color:#666;margin-top:16px;">Na liście wpisów — klasy elementów Bricks</p>
+                <div class="evo-field">
+                    <label>Klasa elementu tytułu <span style="color:#999;font-weight:400;">(na liście)</span></label>
+                    <input type="text" name="evk_darkmode[post_trans_title_class]" value="<?php echo esc_attr($dm['post_trans_title_class']); ?>" placeholder="post-title-item" style="max-width:340px;">
+                    <div class="evo-desc">Klasa CSS elementu Bricks z tytułem wpisu w query loop (bez kropki). Kilka klas oddziel przecinkami.</div>
+                </div>
+                <div class="evo-field">
+                    <label>Klasa elementu obrazka <span style="color:#999;font-weight:400;">(na liście)</span></label>
+                    <input type="text" name="evk_darkmode[post_trans_image_class]" value="<?php echo esc_attr($dm['post_trans_image_class']); ?>" placeholder="post-image-item" style="max-width:340px;">
+                    <div class="evo-desc">Klasa CSS elementu Bricks z obrazkiem wpisu w query loop (bez kropki). Kilka klas oddziel przecinkami.</div>
+                </div>
+
+                <p class="evo-section-title" style="font-size:12px;color:#666;margin-top:16px;">Na stronie pojedynczego wpisu — selektory CSS</p>
+                <div class="evo-field">
+                    <label>Selektor tytułu <span style="color:#999;font-weight:400;">(na singlu)</span></label>
+                    <input type="text" name="evk_darkmode[post_trans_title_single]" value="<?php echo esc_attr($dm['post_trans_title_single']); ?>" placeholder=".single-post h1.brxe-heading" style="max-width:340px;">
+                    <div class="evo-desc">Pełny selektor CSS elementu z tytułem na stronie wpisu. Np. <code>.single-post .brxe-post-title</code></div>
+                </div>
+                <div class="evo-field">
+                    <label>Selektor obrazka <span style="color:#999;font-weight:400;">(na singlu)</span></label>
+                    <input type="text" name="evk_darkmode[post_trans_image_single]" value="<?php echo esc_attr($dm['post_trans_image_single']); ?>" placeholder=".single-post .featured-image img" style="max-width:340px;">
+                    <div class="evo-desc">Pełny selektor CSS featured image na stronie wpisu. Np. <code>.single-post .brxe-post-image img</code></div>
+                </div>
+
+                <div class="evo-field">
+                    <label>Czas animacji (s)</label>
+                    <input type="number" name="evk_darkmode[post_trans_duration]" value="<?php echo esc_attr($dm['post_trans_duration']); ?>" min="0.1" max="3.0" step="0.1" style="width:100px;">
+                </div>
+                <div class="evo-field">
+                    <label>Easing</label>
+                    <input type="text" name="evk_darkmode[post_trans_easing]" value="<?php echo esc_attr($dm['post_trans_easing']); ?>" style="width:280px;" placeholder="ease-in-out">
+                    <div class="evo-desc">Np. <code>ease-in-out</code>, <code>cubic-bezier(0.4, 0, 0.2, 1)</code></div>
+                </div>
+
+                    <?php submit_button('Zapisz ustawienia Dark Mode', 'primary', 'submit', false); ?>
                 </div>
             </form>
