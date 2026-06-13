@@ -15,11 +15,15 @@ class EVK_DarkMode {
         'toggle_selector'   => '.brxe-toggle-mode',
         // Przejście między stronami (wipe)
         'wipe_enabled'      => 1,
+        'nav_trans_type'    => 'wipe',   // wipe | fade | zoom-out | zoom-in | slide-push | iris | nav-ripple
         'wipe_direction'    => 'to bottom',
         'wipe_color'        => '#ffffff',
         'wipe_duration'     => 1.5,
         'wipe_blur'         => 15,
         'wipe_easing'       => 'cubic-bezier(0.4, 0, 0.2, 1)',
+        // Nav ripple (klik → fala)
+        'nav_ripple_color'  => '#ffffff',
+        'nav_ripple_blur'   => 20,
         // Globalne przejścia CSS
         'global_duration'   => 0.4,
         'global_easing'     => 'ease',
@@ -101,6 +105,7 @@ class EVK_DarkMode {
             'ripple_duration' => [200, 5000, 1200],
             'ripple_blur'     => [0, 100, 20],
             'wipe_blur'       => [0, 50, 15],
+            'nav_ripple_blur' => [0, 100, 20],
         ];
         foreach ($ints as $key => [$min, $max, $default]) {
             $clean[$key] = isset($input[$key]) ? max($min, min($max, intval($input[$key]))) : $default;
@@ -117,6 +122,14 @@ class EVK_DarkMode {
         foreach ($texts as $key) {
             $clean[$key] = isset($input[$key]) ? sanitize_textarea_field($input[$key]) : $this->defaults[$key];
         }
+
+        $allowed_nav_types = ['wipe', 'fade', 'zoom-out', 'zoom-in', 'slide-push', 'iris', 'nav-ripple'];
+        $clean['nav_trans_type'] = in_array($input['nav_trans_type'] ?? '', $allowed_nav_types, true)
+            ? $input['nav_trans_type']
+            : $this->defaults['nav_trans_type'];
+
+        $nav_ripple_color = $input['nav_ripple_color'] ?? $this->defaults['nav_ripple_color'];
+        $clean['nav_ripple_color'] = preg_match('/^#[0-9a-fA-F]{6}$/', $nav_ripple_color) ? $nav_ripple_color : $this->defaults['nav_ripple_color'];
 
         $color = $input['wipe_color'] ?? $this->defaults['wipe_color'];
         $clean['wipe_color'] = preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : $this->defaults['wipe_color'];
@@ -261,8 +274,11 @@ CSS;
 CSS;
 
         if (!empty($s['wipe_enabled'])) {
-            $mask_gradient = "linear-gradient({$gradient_dir}, {$wipe_color} calc(var(--wipe-pos) - {$wipe_blur}%), transparent var(--wipe-pos))";
+            $nav_type       = $s['nav_trans_type'] ?? 'wipe';
+            $nav_ripple_col = esc_attr($s['nav_ripple_color'] ?? '#ffffff');
+            $nav_ripple_blur= intval($s['nav_ripple_blur'] ?? 20);
 
+            // @view-transition zawsze gdy nawigacja włączona
             echo <<<CSS
 @view-transition {
     navigation: auto;
@@ -270,6 +286,14 @@ CSS;
 ::view-transition-group(root) {
     animation-duration: {$wipe_dur}s;
 }
+::view-transition-image-pair(root) {
+    isolation: isolate;
+}
+
+CSS;
+            if ($nav_type === 'wipe') {
+                $mask_gradient = "linear-gradient({$gradient_dir}, {$wipe_color} calc(var(--wipe-pos) - {$wipe_blur}%), transparent var(--wipe-pos))";
+                echo <<<CSS
 ::view-transition-old(root) {
     animation: none;
     z-index: 1;
@@ -284,11 +308,130 @@ CSS;
     from { --wipe-pos: -20%; }
     to   { --wipe-pos: 120%; }
 }
-::view-transition-image-pair(root) {
-    isolation: isolate;
+
+CSS;
+            } elseif ($nav_type === 'fade') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-nav-fade-out {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-nav-fade-in {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-nav-fade-out { from { opacity:1; } to { opacity:0; } }
+@keyframes evk-nav-fade-in  { from { opacity:0; } to { opacity:1; } }
+
+CSS;
+            } elseif ($nav_type === 'zoom-out') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-zoom-out-old {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-zoom-out-new {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-zoom-out-old {
+    from { transform:scale(1);   opacity:1; }
+    to   { transform:scale(0.85); opacity:0; }
+}
+@keyframes evk-zoom-out-new {
+    from { transform:scale(1.1); opacity:0; }
+    to   { transform:scale(1);   opacity:1; }
 }
 
 CSS;
+            } elseif ($nav_type === 'zoom-in') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-zoom-in-old {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-zoom-in-new {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-zoom-in-old {
+    from { transform:scale(1);    opacity:1; }
+    to   { transform:scale(1.15); opacity:0; }
+}
+@keyframes evk-zoom-in-new {
+    from { transform:scale(0.9); opacity:0; }
+    to   { transform:scale(1);   opacity:1; }
+}
+
+CSS;
+            } elseif ($nav_type === 'slide-push') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: evk-slide-out {$wipe_dur}s {$wipe_easing} both;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    animation: evk-slide-in {$wipe_dur}s {$wipe_easing} both;
+    z-index: 2;
+}
+@keyframes evk-slide-out {
+    from { transform:translateX(0); }
+    to   { transform:translateX(-100%); }
+}
+@keyframes evk-slide-in {
+    from { transform:translateX(100%); }
+    to   { transform:translateX(0); }
+}
+
+CSS;
+            } elseif ($nav_type === 'iris') {
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: none;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    z-index: 2;
+    animation: evk-iris {$wipe_dur}s {$wipe_easing} both;
+    clip-path: circle(0% at 50% 50%);
+}
+@keyframes evk-iris {
+    from { clip-path: circle(0% at 50% 50%); }
+    to   { clip-path: circle(150% at 50% 50%); }
+}
+
+CSS;
+            } elseif ($nav_type === 'nav-ripple') {
+                // Ripple od kliknięcia — CSS ustawia tylko pseudoelementy,
+                // JS (render_scripts) animuje --nav-ripple-radius przez WAAPI
+                echo <<<CSS
+@property --nav-ripple-radius {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+::view-transition-old(root) {
+    animation: none !important;
+    z-index: 1;
+    opacity: 1;
+}
+::view-transition-new(root) {
+    animation: none !important;
+    z-index: 2;
+    -webkit-mask-image: radial-gradient(
+        circle at var(--nav-ripple-x, 50%) var(--nav-ripple-y, 50%),
+        black calc(max(0px, var(--nav-ripple-radius) - {$nav_ripple_blur}px)),
+        transparent var(--nav-ripple-radius)
+    ) !important;
+    mask-image: radial-gradient(
+        circle at var(--nav-ripple-x, 50%) var(--nav-ripple-y, 50%),
+        black calc(max(0px, var(--nav-ripple-radius) - {$nav_ripple_blur}px)),
+        transparent var(--nav-ripple-radius)
+    ) !important;
+}
+
+CSS;
+            }
         }
 
         if (!empty($s['ripple_enabled'])) {
@@ -413,12 +556,15 @@ CSS;
         $s = $this->get_settings();
         if (empty($s['enabled'])) return;
 
-        $ripple_enabled  = !empty($s['ripple_enabled']);
-        $ripple_duration = intval($s['ripple_duration']);
-        $ripple_easing   = esc_js($s['ripple_easing']);
-        $toggle_selector = esc_js($s['toggle_selector'] ?: '.brxe-toggle-mode');
-        ?>
-<script id="evk-darkmode-js">
+        $ripple_enabled   = !empty($s['ripple_enabled']);
+        $ripple_duration  = intval($s['ripple_duration']);
+        $ripple_easing    = esc_js($s['ripple_easing']);
+        $toggle_selector  = esc_js($s['toggle_selector'] ?: '.brxe-toggle-mode');
+        $nav_trans_type   = esc_js($s['nav_trans_type'] ?? 'wipe');
+        $nav_enabled      = !empty($s['wipe_enabled']);
+        $nav_duration_ms  = intval(floatval($s['wipe_duration']) * 1000);
+        $nav_easing       = esc_js($s['wipe_easing']);
+        ?>\n<script id="evk-darkmode-js">
 (function () {
     var html       = document.documentElement;
     var storageKey = 'brx_mode';
@@ -426,6 +572,10 @@ CSS;
     var rippleDuration = <?php echo $ripple_duration; ?>;
     var rippleEasing   = '<?php echo $ripple_easing; ?>';
     var toggleSelector = '<?php echo $toggle_selector; ?>';
+    var navTransType   = '<?php echo $nav_trans_type; ?>';
+    var navEnabled     = <?php echo $nav_enabled ? 'true' : 'false'; ?>;
+    var navDuration    = <?php echo $nav_duration_ms; ?>;
+    var navEasing      = '<?php echo $nav_easing; ?>';
 
     var savedMode = localStorage.getItem(storageKey) || 'light';
     html.setAttribute('data-theme', savedMode);
@@ -502,6 +652,62 @@ CSS;
         } else {
             html.classList.remove('dark');
         }
+    }
+
+    // ── Nav Ripple: przechwytuje kliknięcia w linki i odpala ripple od kursora ──
+    if (navEnabled && navTransType === 'nav-ripple' && document.startViewTransition) {
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest ? e.target.closest('a') : (function () {
+                var el = e.target;
+                while (el && el.tagName !== 'A') el = el.parentNode;
+                return (el && el.tagName === 'A') ? el : null;
+            }());
+            if (!link) return;
+
+            var href = link.getAttribute('href');
+            if (!href) return;
+            if (link.target === '_blank') return;
+            if (/^[#?]|^(mailto|tel|javascript):/i.test(href.trim())) return;
+
+            var dest;
+            try { dest = new URL(href, location.href); } catch (x) { return; }
+            if (dest.origin !== location.origin) return;
+            if (/\/wp-admin\//.test(dest.pathname)) return;
+            if (dest.href === location.href) return;
+
+            e.preventDefault();
+
+            var x = e.clientX;
+            var y = e.clientY;
+            var endRadius = Math.hypot(
+                Math.max(x, window.innerWidth  - x),
+                Math.max(y, window.innerHeight - y)
+            );
+
+            html.style.setProperty('--nav-ripple-x', x + 'px');
+            html.style.setProperty('--nav-ripple-y', y + 'px');
+
+            var transition = document.startViewTransition(function () {
+                // Przeglądarka snapshottuje stary widok — właściwa nawigacja
+                // następuje po transition, więc przekierowujemy wewnątrz
+            });
+
+            transition.ready.then(function () {
+                html.animate(
+                    { '--nav-ripple-radius': ['0px', (endRadius + 50) + 'px'] },
+                    {
+                        duration: navDuration,
+                        easing: navEasing,
+                        pseudoElement: '::view-transition-new(root)',
+                        fill: 'forwards'
+                    }
+                );
+            });
+
+            transition.finished.then(function () {
+                location.href = dest.href;
+            });
+        }, true);
     }
 })();
 </script>
