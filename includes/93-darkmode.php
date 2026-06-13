@@ -402,35 +402,9 @@ CSS;
 
 CSS;
             } elseif ($nav_type === 'nav-ripple') {
-                // Ripple od kliknięcia — CSS ustawia tylko pseudoelementy,
-                // JS (render_scripts) animuje --nav-ripple-radius przez WAAPI
-                echo <<<CSS
-@property --nav-ripple-radius {
-    syntax: '<length>';
-    inherits: false;
-    initial-value: 0px;
-}
-::view-transition-old(root) {
-    animation: none !important;
-    z-index: 1;
-    opacity: 1;
-}
-::view-transition-new(root) {
-    animation: none !important;
-    z-index: 2;
-    -webkit-mask-image: radial-gradient(
-        circle at var(--nav-ripple-x, 50%) var(--nav-ripple-y, 50%),
-        black calc(max(0px, var(--nav-ripple-radius) - {$nav_ripple_blur}px)),
-        transparent var(--nav-ripple-radius)
-    ) !important;
-    mask-image: radial-gradient(
-        circle at var(--nav-ripple-x, 50%) var(--nav-ripple-y, 50%),
-        black calc(max(0px, var(--nav-ripple-radius) - {$nav_ripple_blur}px)),
-        transparent var(--nav-ripple-radius)
-    ) !important;
-}
-
-CSS;
+                // Ripple obsługiwany przez JS (overlay div + clip-path)
+                // Brak dodatkowego CSS — @view-transition już wstrzyknięty powyżej
+                // ale nie potrzebujemy pseudoelementów ::view-transition-*
             }
         }
 
@@ -654,9 +628,20 @@ CSS;
         }
     }
 
-    // ── Nav Ripple: przechwytuje kliknięcia w linki i odpala ripple od kursora ──
-    if (navEnabled && navTransType === 'nav-ripple' && document.startViewTransition) {
+    // ── Nav Ripple: nakładka kołowa od miejsca kliknięcia ──
+    // Działa jak zasłona: zakrywa ekran kołem, potem nawiguje.
+    // Nie używa startViewTransition (MPA nie może snapshottować nowej strony).
+    if (navEnabled && navTransType === 'nav-ripple') {
+        var navRippleBusy = false;
+        var navRippleColor = '<?php echo esc_js($s['nav_ripple_color'] ?? '#ffffff'); ?>';
+
+        var navOverlay = document.createElement('div');
+        navOverlay.setAttribute('aria-hidden', 'true');
+        navOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + navRippleColor + ';clip-path:circle(0% at 50% 50%);will-change:clip-path';
+
         document.addEventListener('click', function (e) {
+            if (navRippleBusy) return;
+
             var link = e.target.closest ? e.target.closest('a') : (function () {
                 var el = e.target;
                 while (el && el.tagName !== 'A') el = el.parentNode;
@@ -676,37 +661,30 @@ CSS;
             if (dest.href === location.href) return;
 
             e.preventDefault();
+            navRippleBusy = true;
 
             var x = e.clientX;
             var y = e.clientY;
-            var endRadius = Math.hypot(
-                Math.max(x, window.innerWidth  - x),
-                Math.max(y, window.innerHeight - y)
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+            var r    = Math.hypot(Math.max(x, vw - x), Math.max(y, vh - y));
+            var diag = Math.hypot(vw, vh);
+            var pct  = Math.ceil((r / diag) * 200);
+            var xPct = Math.round(x / vw * 100);
+            var yPct = Math.round(y / vh * 100);
+
+            navOverlay.style.clipPath = 'circle(0% at ' + xPct + '% ' + yPct + '%)';
+            document.body.appendChild(navOverlay);
+
+            var anim = navOverlay.animate(
+                [
+                    { clipPath: 'circle(0% at '   + xPct + '% ' + yPct + '%)' },
+                    { clipPath: 'circle(' + pct + '% at ' + xPct + '% ' + yPct + '%)' }
+                ],
+                { duration: navDuration, easing: navEasing, fill: 'forwards' }
             );
 
-            html.style.setProperty('--nav-ripple-x', x + 'px');
-            html.style.setProperty('--nav-ripple-y', y + 'px');
-
-            var transition = document.startViewTransition(function () {
-                // Przeglądarka snapshottuje stary widok — właściwa nawigacja
-                // następuje po transition, więc przekierowujemy wewnątrz
-            });
-
-            transition.ready.then(function () {
-                html.animate(
-                    { '--nav-ripple-radius': ['0px', (endRadius + 50) + 'px'] },
-                    {
-                        duration: navDuration,
-                        easing: navEasing,
-                        pseudoElement: '::view-transition-new(root)',
-                        fill: 'forwards'
-                    }
-                );
-            });
-
-            transition.finished.then(function () {
-                location.href = dest.href;
-            });
+            anim.onfinish = function () { location.href = dest.href; };
         }, true);
     }
 })();
