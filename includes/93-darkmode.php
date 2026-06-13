@@ -270,6 +270,11 @@ CSS;
     inherits: false;
     initial-value: 0px;
 }
+@property --nav-circle-r {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 0%;
+}
 
 CSS;
 
@@ -310,8 +315,26 @@ CSS;
 }
 
 CSS;
+            } elseif ($nav_type === 'nav-ripple') {
+                // Identyczny mechanizm co wipe — @view-transition + animowany ::view-transition-new
+                // JS ustawia --nav-click-x/y na <html> przed nawigacją
+                echo <<<CSS
+::view-transition-old(root) {
+    animation: none;
+    z-index: 1;
+}
+::view-transition-new(root) {
+    z-index: 2;
+    animation: evk-nav-ripple {$wipe_dur}s {$wipe_easing} both;
+}
+@keyframes evk-nav-ripple {
+    from { clip-path: circle(0% at var(--nav-click-x, 50%) var(--nav-click-y, 50%)); }
+    to   { clip-path: circle(150% at var(--nav-click-x, 50%) var(--nav-click-y, 50%)); }
+}
+
+CSS;
             } else {
-                // fade / zoom-out / zoom-in / slide-push / iris / nav-ripple
+                // fade / zoom-out / zoom-in / slide-push / iris
                 // obsługiwane przez JS overlay (sessionStorage OUT→IN)
                 // brak dodatkowych pseudoelementów ::view-transition-*
             }
@@ -541,9 +564,29 @@ CSS;
     // Wipe (zasłona) działa przez View Transition CSS — bez JS.
     // Pozostałe typy używają JS overlay który zakrywa ekran,
     // nawiguje, a po załadowaniu nowej strony odkrywa.
-    var navOverlayTypes = ['fade', 'zoom-out', 'zoom-in', 'slide-push', 'iris', 'nav-ripple'];
+    var navOverlayTypes = ['fade', 'zoom-out', 'zoom-in', 'slide-push', 'iris'];
     var navWipeColor  = '<?php echo esc_js($s['wipe_color'] ?? '#ffffff'); ?>';
     var navRippleColor = '<?php echo esc_js($s['nav_ripple_color'] ?? '#ffffff'); ?>';
+
+    // ── Nav Ripple: ustaw pozycję kliknięcia jako CSS vars przed MPA nawigacją ──
+    // @view-transition CSS sam obsługuje animację — JS tylko przekazuje X/Y.
+    if (navEnabled && navTransType === 'nav-ripple') {
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest ? e.target.closest('a') : (function () {
+                var el = e.target;
+                while (el && el.tagName !== 'A') el = el.parentNode;
+                return (el && el.tagName === 'A') ? el : null;
+            }());
+            if (!link) return;
+            var href = link.getAttribute('href');
+            if (!href || link.target === '_blank') return;
+            if (/^[#?]|^(mailto|tel|javascript):/i.test(href.trim())) return;
+            var x = Math.round(e.clientX / window.innerWidth  * 100) + '%';
+            var y = Math.round(e.clientY / window.innerHeight * 100) + '%';
+            html.style.setProperty('--nav-click-x', x);
+            html.style.setProperty('--nav-click-y', y);
+        }, true);
+    }
 
     if (navEnabled && navOverlayTypes.indexOf(navTransType) !== -1) {
         var navBusy = false;
@@ -557,7 +600,7 @@ CSS;
         if (storedNav && storedNav.type) {
             var inOv = document.createElement('div');
             inOv.setAttribute('aria-hidden', 'true');
-            var inColor = storedNav.type === 'nav-ripple' ? navRippleColor : navWipeColor;
+            var inColor = navWipeColor;
             inOv.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + inColor + ';will-change:transform,opacity,clip-path';
             document.documentElement.appendChild(inOv);
 
@@ -578,11 +621,6 @@ CSS;
                 inKeyframes = [
                     { clipPath: 'circle(150% at 50% 50%)' },
                     { clipPath: 'circle(0% at 50% 50%)' }
-                ];
-            } else if (t === 'nav-ripple') {
-                inKeyframes = [
-                    { clipPath: 'circle(150% at ' + xPct + '% ' + yPct + '%)' },
-                    { clipPath: 'circle(0% at '   + xPct + '% ' + yPct + '%)' }
                 ];
             }
 
@@ -642,7 +680,7 @@ CSS;
 
             var outOv = document.createElement('div');
             outOv.setAttribute('aria-hidden', 'true');
-            var outColor = navTransType === 'nav-ripple' ? navRippleColor : navWipeColor;
+            var outColor = navWipeColor;
             outOv.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:' + outColor + ';will-change:transform,opacity,clip-path';
             document.documentElement.appendChild(outOv);
 
@@ -666,15 +704,6 @@ CSS;
                 outKeyframes = [
                     { clipPath: 'circle(0% at 50% 50%)' },
                     { clipPath: 'circle(150% at 50% 50%)' }
-                ];
-            } else if (navTransType === 'nav-ripple') {
-                outOv.style.clipPath = 'circle(0% at ' + xPct + '% ' + yPct + '%)';
-                var r    = Math.hypot(Math.max(x, vw - x), Math.max(y, vh - y));
-                var diag = Math.hypot(vw, vh);
-                var pct  = Math.ceil((r / diag) * 200);
-                outKeyframes = [
-                    { clipPath: 'circle(0% at '   + xPct + '% ' + yPct + '%)' },
-                    { clipPath: 'circle(' + pct + '% at ' + xPct + '% ' + yPct + '%)' }
                 ];
             }
 
